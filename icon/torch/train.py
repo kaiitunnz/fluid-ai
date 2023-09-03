@@ -83,7 +83,7 @@ def train_one_epoch(
     train_running_loss = 0.0
     train_running_correct = 0
     counter = 0
-    for _, (image, labels) in enumerate(tqdm(train_loader)):
+    for image, labels in tqdm(train_loader):
         counter += 1
         image = image.to(device)
         labels = labels.to(device)

@@ -1,40 +1,107 @@
 import os
-from typing import List, Tuple
+from PIL import Image
+from typing import Callable, List, Optional, Tuple
 
+import torch
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
-from torchvision.datasets import ImageFolder
 
 IMAGE_SIZE = 224
 
 
-def get_train_transform(
-    pretrained: bool, image_size: int = IMAGE_SIZE
-) -> transforms.Compose:
-    train_transform = transforms.Compose(
-        [
-            transforms.Resize((image_size, image_size)),
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
-            transforms.RandomAdjustSharpness(sharpness_factor=2, p=0.5),
-            transforms.ToTensor(),
-            normalize_transform(pretrained),
-        ]
-    )
-    return train_transform
+class RicoIconDataset(Dataset):
+    root: str
+    training: bool
+    pretrained: bool
+    image_size: int
+    classes: List[str]
+    icon_paths: List[Tuple[str, str]]
+    directional_icons: Optional[List[str]]
+    transform: Callable
+    directional_transform: Callable
 
+    def __init__(
+        self,
+        root: str,
+        training: bool,
+        pretrained: bool,
+        image_size: int = IMAGE_SIZE,
+        directional_icons: Optional[List[str]] = None,
+    ):
+        self.root = root
+        self.training = training
+        self.pretrained = pretrained
+        self.image_size = image_size
+        self.directional_icons = directional_icons or []
 
-def get_valid_transform(
-    pretrained: bool, image_size: int = IMAGE_SIZE
-) -> transforms.Compose:
-    valid_transform = transforms.Compose(
-        [
-            transforms.Resize((image_size, image_size)),
-            transforms.ToTensor(),
-            normalize_transform(pretrained),
-        ]
-    )
-    return valid_transform
+        self.classes: List[str] = []
+        self.icon_paths: List[Tuple[str, str]] = []
+        for icon_class in os.listdir(self.root):
+            icon_class_dir = os.path.join(self.root, icon_class)
+            if os.path.isdir(icon_class_dir):
+                self.classes.append(icon_class)
+                self.icon_paths.extend(
+                    (icon_class, fname) for fname in os.listdir(icon_class_dir)
+                )
+        self.class2idx = {cls: i for i, cls in enumerate(self.classes)}
+
+        if self.training:
+            self.transform = self._train_transform()
+            self.directional_transform = self._train_directional_transform()
+        else:
+            self.transform = self._valid_transform()
+            self.directional_transform = self.transform
+
+    def __len__(self):
+        return len(self.icon_paths)
+
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, int]:
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+
+        icon_class, icon_fname = self.icon_paths[idx]
+
+        icon_path = os.path.join(self.root, icon_class, icon_fname)
+        icon = Image.open(icon_path).convert("RGB")
+
+        if icon_class in self.directional_icons:
+            transformed = self.directional_transform(icon)
+        else:
+            transformed = self.transform(icon)
+
+        return transformed, self.class2idx[icon_class]
+
+    def _train_transform(self) -> transforms.Compose:
+        return transforms.Compose(
+            [
+                transforms.Resize((self.image_size, self.image_size)),
+                transforms.RandomHorizontalFlip(p=0.5),
+                transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
+                transforms.RandomAdjustSharpness(sharpness_factor=2, p=0.5),
+                transforms.ToTensor(),
+                _normalize_transform(self.pretrained),
+            ]
+        )
+
+    def _train_directional_transform(self) -> transforms.Compose:
+        return transforms.Compose(
+            [
+                transforms.Resize((self.image_size, self.image_size)),
+                transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
+                transforms.RandomAdjustSharpness(sharpness_factor=2, p=0.5),
+                transforms.ToTensor(),
+                _normalize_transform(self.pretrained),
+            ]
+        )
+
+    def _valid_transform(self) -> transforms.Compose:
+        return transforms.Compose(
+            [
+                transforms.Resize((self.image_size, self.image_size)),
+                transforms.ToTensor(),
+                _normalize_transform(self.pretrained),
+            ]
+        )
 
 
 def get_infer_transform(
@@ -43,12 +110,12 @@ def get_infer_transform(
     return transforms.Compose(
         [
             transforms.Resize((image_size, image_size)),
-            normalize_transform(pretrained),
+            _normalize_transform(pretrained),
         ]
     )
 
 
-def normalize_transform(pretrained: bool) -> transforms.Normalize:
+def _normalize_transform(pretrained: bool) -> transforms.Normalize:
     if pretrained:
         normalize = transforms.Normalize(
             mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
@@ -59,20 +126,31 @@ def normalize_transform(pretrained: bool) -> transforms.Normalize:
 
 
 def get_datasets(
-    root_dir: str, pretrained: bool, image_size: int = IMAGE_SIZE
+    root_dir: str,
+    pretrained: bool,
+    directional_icons: Optional[List[str]] = None,
+    image_size: int = IMAGE_SIZE,
 ) -> Tuple[Dataset, Dataset, Dataset, List[str]]:
-    train = ImageFolder(
+    train = RicoIconDataset(
         os.path.join(root_dir, "train"),
-        transform=get_train_transform(pretrained, image_size),
+        True,
+        pretrained,
+        image_size,
+        directional_icons,
     )
-    val = ImageFolder(
+    val = RicoIconDataset(
         os.path.join(root_dir, "val"),
-        transform=get_valid_transform(pretrained, image_size),
+        False,
+        pretrained,
+        image_size,
     )
-    test = ImageFolder(
+    test = RicoIconDataset(
         os.path.join(root_dir, "test"),
-        transform=get_valid_transform(pretrained, image_size),
+        False,
+        pretrained,
+        image_size,
     )
+    assert train.classes == val.classes and val.classes == test.classes
     return train, val, test, train.classes
 
 

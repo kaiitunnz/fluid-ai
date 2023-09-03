@@ -26,7 +26,7 @@ class ModelWrapper(nn.Module):
 def build_efficientnet_v2(classes: List[str], pretrained: bool = True) -> ModelWrapper:
     if pretrained:
         print("[INFO]: Loading pre-trained weights")
-        model = models.efficientnet_v2_s(models.EfficientNet_V2_S_Weights)
+        model = models.efficientnet_v2_s(models.EfficientNet_V2_S_Weights.DEFAULT)
     else:
         print("[INFO]: Not loading pre-trained weights")
         model = models.efficientnet_v2_s()
@@ -40,7 +40,7 @@ def build_efficientnet_v2(classes: List[str], pretrained: bool = True) -> ModelW
 def build_resnet_50(classes: List[str], pretrained: bool = True) -> ModelWrapper:
     if pretrained:
         print("[INFO]: Loading pre-trained weights")
-        model = models.resnet50(models.ResNet50_Weights)
+        model = models.resnet50(models.ResNet50_Weights.DEFAULT)
     else:
         print("[INFO]: Not loading pre-trained weights")
         model = models.resnet50()
