@@ -41,23 +41,25 @@ class TrainConfig(NamedTuple):
     results_dir: Optional[str] = None
     save_period: int = 5
     pretrained: bool = True
+    overwrite: bool = False
 
 
 class EvalConfig(NamedTuple):
     results_dir: str
     classes: Optional[List[str]]
     device: torch.device = torch.device("cpu")
+    overwrite: bool = False
 
 
 def _init_training(train_config: TrainConfig):
     if train_config.results_dir is None:
         return None
-    os.makedirs(_get_checkpoint_path(train_config), exist_ok=True)
-    os.makedirs(_get_plot_path(train_config), exist_ok=True)
+    os.makedirs(_get_checkpoint_path(train_config), exist_ok=train_config.overwrite)
+    os.makedirs(_get_plot_path(train_config), exist_ok=train_config.overwrite)
 
 
 def _init_eval(eval_config: EvalConfig):
-    os.makedirs(eval_config.results_dir, exist_ok=True)
+    os.makedirs(eval_config.results_dir, exist_ok=eval_config.overwrite)
 
 
 def _get_checkpoint_path(train_config: TrainConfig) -> Optional[str]:
