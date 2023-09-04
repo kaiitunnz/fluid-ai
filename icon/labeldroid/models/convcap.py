@@ -1,5 +1,5 @@
 import math
-from typing import Optional, Tuple
+from typing import Callable, Optional, Tuple
 
 import numpy as np
 import torch
@@ -18,8 +18,9 @@ def Conv1d(
     m = nn.Conv1d(in_channels, out_channels, kernel_size, padding=padding)
     std = math.sqrt((4 * (1.0 - dropout)) / (kernel_size * in_channels))
     m.weight.data.normal_(mean=0, std=std)
-    m.bias.data.zero_()
-    return nn.utils.weight_norm(m)
+    if m.bias is not None:
+        m.bias.data.zero_()
+    return nn.utils.weight_norm(m)  # type: ignore
 
 
 def Embedding(
@@ -34,13 +35,13 @@ def Linear(in_features: int, out_features: int, dropout: float = 0.0) -> nn.Line
     m = nn.Linear(in_features, out_features)
     m.weight.data.normal_(mean=0, std=math.sqrt((1 - dropout) / in_features))
     m.bias.data.zero_()
-    return nn.utils.weight_norm(m)
+    return nn.utils.weight_norm(m)  # type: ignore
 
 
 class AttentionLayer(nn.Module):
     in_projection: nn.Linear
     out_projection: nn.Linear
-    bmm: torch.Tensor
+    bmm: Callable[..., torch.Tensor]
 
     def __init__(self, conv_channels: int, embed_dim: int):
         super().__init__()
@@ -178,7 +179,7 @@ class convcap(nn.Module):
 
         x = x.transpose(2, 1)
 
-        return x, attn_buffer
+        return x, attn_buffer  # type: ignore
 
     def evaluate(
         self,

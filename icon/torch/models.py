@@ -33,7 +33,7 @@ def build_efficientnet_v2(classes: List[str], pretrained: bool = True) -> ModelW
     for params in model.parameters():
         params.requires_grad = True
     in_features = model.classifier[1].in_features
-    model.classifier[1] = nn.Linear(in_features=in_features, out_features=len(classes))
+    model.classifier[1] = nn.Linear(in_features=in_features, out_features=len(classes))  # type: ignore
     return ModelWrapper(model, pretrained, classes)
 
 

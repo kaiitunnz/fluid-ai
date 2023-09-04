@@ -32,11 +32,11 @@ def _clone_module(module: nn.Module, N: int) -> nn.ModuleList:
 class LayerNorm(nn.Module):
     """Construct a layernorm module (See citation for details)."""
 
-    a_2: nn.Module
-    b_2: nn.Module
-    eps: int
+    a_2: nn.Parameter
+    b_2: nn.Parameter
+    eps: float
 
-    def __init__(self, features: int, eps: int = 1e-6):
+    def __init__(self, features: int, eps: float = 1e-6):
         super().__init__()
         self.a_2 = nn.Parameter(torch.ones(features))
         self.b_2 = nn.Parameter(torch.zeros(features))
@@ -121,7 +121,7 @@ class EncoderLayer(nn.Module):
 
     self_attn: MultiHeadedAttention
     feed_forward: nn.Module
-    sublayer: Sequence[SublayerConnection]
+    sublayer: nn.ModuleList
     size: int
 
     def __init__(
@@ -146,7 +146,7 @@ class EncoderLayer(nn.Module):
 class Encoder(nn.Module):
     """Core encoder is a stack of N layers"""
 
-    layers: Iterable[EncoderLayer]
+    layers: nn.ModuleList
     norm: LayerNorm
 
     def __init__(self, layer: EncoderLayer, N: int):
@@ -168,7 +168,7 @@ class DecoderLayer(nn.Module):
     self_attn: MultiHeadedAttention
     src_attn: MultiHeadedAttention
     feed_forward: nn.Module
-    sublayer: Sequence[SublayerConnection]
+    sublayer: nn.ModuleList
 
     def __init__(
         self,
@@ -203,7 +203,7 @@ class DecoderLayer(nn.Module):
 class Decoder(nn.Module):
     """Generic N layer decoder with masking."""
 
-    layers: Sequence[DecoderLayer]
+    layers: nn.ModuleList
     norm: LayerNorm
 
     def __init__(self, layer: DecoderLayer, N: int):
@@ -278,15 +278,6 @@ class EncoderDecoder(nn.Module):
         return self.decoder(self.tgt_embed(tgt), memory, src_mask, tgt_mask)
 
 
-### tgt_mask
-def subsequent_mask(size: int) -> torch.Tensor:
-    """Mask out subsequent positions."""
-    attn_shape = (1, size, size)
-    # np.triu: return the upper triangle of matrix below the k-th diagonal
-    subsequent_mask = np.triu(np.ones(attn_shape), k=1).astype("uint8")
-    return torch.from_numpy(subsequent_mask) == 0
-
-
 # Attention
 def attention(
     query: torch.Tensor,
@@ -344,6 +335,7 @@ class PositionalEncoding(nn.Module):
     """Implement the PE function."""
 
     dropout: nn.Dropout
+    pe: torch.Tensor
 
     def __init__(self, d_model: int, dropout: float, max_len: int = 5000):
         super().__init__()
@@ -355,8 +347,8 @@ class PositionalEncoding(nn.Module):
         div_term = torch.exp(
             torch.arange(0.0, d_model, 2) * -(math.log(10000.0) / d_model)
         )
-        pe[:, 0::2] = torch.sin(position * div_term).type(torch.LongTensor)
-        pe[:, 1::2] = torch.cos(position * div_term).type(torch.LongTensor)
+        pe[:, 0::2] = torch.sin(position * div_term).type(torch.long)
+        pe[:, 1::2] = torch.cos(position * div_term).type(torch.long)
         pe = pe.unsqueeze(0)
         self.register_buffer("pe", pe)
 
@@ -416,9 +408,6 @@ class Transformer(nn.Module):
     att_embed: nn.Module
     model: EncoderDecoder
 
-    def identical_map(x: ...) -> ...:
-        return x
-
     def make_model(
         self,
         tgt_vocab: int,
@@ -436,7 +425,7 @@ class Transformer(nn.Module):
         model = EncoderDecoder(
             Encoder(EncoderLayer(d_model, c(attn), c(ff), dropout), N),
             Decoder(DecoderLayer(d_model, c(attn), c(attn), c(ff), dropout), N),
-            nn.Identity(),  # lambda x:x, #self.identical_map, #nn.Sequential(Embeddings(d_model, src_vocab), c(position)),
+            nn.Identity(),
             nn.Sequential(Embeddings(d_model, tgt_vocab), c(position)),
             Generator(d_model, tgt_vocab),
         )
@@ -566,12 +555,12 @@ class Transformer(nn.Module):
             else:
                 ys = ys[beam_indices]
                 memory = memory.index_select(
-                    0, Variable(torch.cuda.LongTensor(beam_indices))
+                    0, Variable(torch.LongTensor(beam_indices).cuda())
                 )
                 att_feats = att_feats.index_select(
-                    0, Variable(torch.cuda.LongTensor(beam_indices))
+                    0, Variable(torch.LongTensor(beam_indices).cuda())
                 )
                 next_word = Variable(torch.from_numpy(wordclass_indices)).cuda()
                 ys = torch.cat([ys, next_word.unsqueeze(-1)], dim=1)
 
-        return sentence_ids
+        return torch.tensor(sentence_ids)

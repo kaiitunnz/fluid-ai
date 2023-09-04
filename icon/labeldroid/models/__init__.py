@@ -1,8 +1,6 @@
-from typing import Optional
+from typing import Optional, Union
 
 import torch.nn as nn
-
-from .. import args
 
 from . import *
 from . import convcap, lstm, transformer
@@ -17,11 +15,11 @@ def setup(
     hidden_size: int = 512,
     img_features_size: int = 2048,
     max_tokens: int = 15,
-    numwords: Optional[int] = None,
+    numwords: int = 0,
     num_layers: int = 3,
-    use_bn: Optional[bool] = None,
-    vocab_len: Optional[int] = None,
-) -> nn.Module:
+    use_bn: bool = True,
+    vocab_len: int = 0,
+) -> Union[lstm.DecoderRNN, convcap.convcap, transformer.Transformer]:
     # lstm
     if caption_model == "lstm":
         model = lstm.DecoderRNN(
@@ -48,6 +46,6 @@ def setup(
             ff_size,
         )
     else:
-        raise Exception("Caption model not supported: {}".format(args.caption_model))
+        raise Exception("Caption model not supported: {}".format(caption_model))
 
     return model

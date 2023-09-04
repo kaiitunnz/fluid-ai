@@ -7,7 +7,7 @@ class Vocabulary(object):
     """Simple vocabulary wrapper."""
 
     word2idx: Dict[str, int]
-    idx2word: Dict[int, str]
+    idx2word: Dict[str, str]
     idx: int
 
     def __init__(self):
@@ -18,7 +18,7 @@ class Vocabulary(object):
     def add_word(self, word):
         if not word in self.word2idx:
             self.word2idx[word] = self.idx
-            self.idx2word[self.idx] = word
+            self.idx2word[str(self.idx)] = word
             self.idx += 1
 
     @classmethod

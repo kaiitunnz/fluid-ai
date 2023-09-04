@@ -1,3 +1,5 @@
+from typing import Any, Optional, Tuple, Union
+
 import torch
 import torch.nn as nn
 from torchvision import models
@@ -34,7 +36,9 @@ class ResNetFeats(nn.Module):
         self.linear = nn.Linear(resnet.fc.in_features, self.embed_size)
         self.bn = nn.BatchNorm1d(self.embed_size, momentum=0.01)
 
-    def forward(self, images):
+    def forward(
+        self, images
+    ) -> Optional[Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]]:
         """Extract feature vectors from input images."""
         with torch.no_grad():
             x = self.resnet(images)
@@ -48,14 +52,12 @@ class ResNetFeats(nn.Module):
             # img features
             features = features.reshape(features.size(0), -1)
             features = self.bn(self.linear(features))
-
-        if self.caption_model == "convcap":
-            # att: [batchsize, 2048, 7, 7]
-            att = self.adaptive_pool7x7(x)
-            return att, features
-        elif self.caption_model == "lstm":
+            if self.caption_model == "convcap":
+                # att: [batchsize, 2048, 7, 7]
+                att = self.adaptive_pool7x7(x)
+                return att, features
             return features
-        elif self.caption_model == "transformer":
+        if self.caption_model == "transformer":
             # fc: [batchsize, 8]
             # fc = x.mean(3).mean(2)
             # att: [batchsize, 7, 7, 2048]

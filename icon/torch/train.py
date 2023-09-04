@@ -54,8 +54,12 @@ class EvalConfig(NamedTuple):
 def _init_training(train_config: TrainConfig):
     if train_config.results_dir is None:
         return None
-    os.makedirs(_get_checkpoint_path(train_config), exist_ok=train_config.overwrite)
-    os.makedirs(_get_plot_path(train_config), exist_ok=train_config.overwrite)
+    checkpoint_path = _get_checkpoint_path(train_config)
+    if checkpoint_path is not None:
+        os.makedirs(checkpoint_path, exist_ok=train_config.overwrite)
+    plot_path = _get_plot_path(train_config)
+    if plot_path is not None:
+        os.makedirs(plot_path, exist_ok=train_config.overwrite)
 
 
 def _init_eval(eval_config: EvalConfig):
@@ -100,7 +104,7 @@ def train_one_epoch(
             optimizer.step()
 
     epoch_loss = train_running_loss / counter
-    epoch_acc = 100.0 * (train_running_correct / len(train_loader.dataset))
+    epoch_acc = 100.0 * (train_running_correct / len(train_loader.dataset))  # type: ignore
     return epoch_loss, epoch_acc
 
 
@@ -125,7 +129,7 @@ def validate(
 
     # Loss and accuracy for the complete epoch.
     epoch_loss = valid_running_loss / counter
-    epoch_acc = 100.0 * (valid_running_correct / len(val_loader.dataset))
+    epoch_acc = 100.0 * (valid_running_correct / len(val_loader.dataset))  # type: ignore
     return epoch_loss, epoch_acc
 
 
@@ -134,7 +138,7 @@ def train(
     train_config: TrainConfig,
     train_loader: DataLoader,
     val_loader: DataLoader,
-) -> nn.Module:
+):
     _init_training(train_config)
     optimizer = train_config.optimizer
     criterion = train_config.criterion
@@ -167,7 +171,7 @@ def train(
 
         if scheduler is not None:
             try:
-                scheduler.step(metrics=val_epoch_loss)
+                scheduler.step(metrics=val_epoch_loss)  # type: ignore
             except TypeError:
                 scheduler.step()
 
@@ -254,7 +258,7 @@ def eval(
                 all_preds.extend(preds.tolist())
                 all_targets.extend(labels.tolist())
 
-    print("Overall accuracy:", 100 * (valid_running_correct / len(test_loader.dataset)))
+    print("Overall accuracy:", 100 * (valid_running_correct / len(test_loader.dataset)))  # type: ignore
     conf_mat = confusion_matrix(all_targets, all_preds, normalize=None)
     pd.DataFrame(conf_mat, columns=classes, index=classes).to_csv(
         os.path.join(results_dir, "confusion_matrix.csv")

@@ -6,7 +6,7 @@ import torch
 from torchvision import transforms
 
 from ..base import UiElement
-from . import labeldroid
+from .labeldroid import utils as labeldroid_utils
 from .labeldroid.args import LabelDroidArgs
 from .labeldroid.models.combined_model import LabelDroid
 from .torch.datasets import get_infer_transform
@@ -52,7 +52,10 @@ class ClassifierIconLabeller(BaseIconLabeller):
         def inner_batched(images: List[np.ndarray]) -> List[str]:
             if len(images) == 0:
                 return []
-            tmp = [self.transform(_preprocess_image(image)) for image in images]
+            tmp = [
+                torch.tensor(self.transform(_preprocess_image(image)))
+                for image in images
+            ]
             transformed = torch.cat(tmp, dim=0)
             _, class_indices = torch.max(self.model(transformed).data, -1)
             return [self.model.classes[class_idx.item()] for class_idx in class_indices]
@@ -78,7 +81,7 @@ class CaptionIconLabeller(BaseIconLabeller):
         self.model = LabelDroid(
             LabelDroidArgs(model_path=model_path, vocab_path=vocab_path)
         )
-        self.transform = labeldroid.utils.get_infer_transform()
+        self.transform = labeldroid_utils.get_infer_transform()
         self.batched = batched
 
     def label(
@@ -87,6 +90,8 @@ class CaptionIconLabeller(BaseIconLabeller):
         def get_sentence(sentence_id: List[int]) -> str:
             tmp = []
             for word_id in sentence_id:
+                if self.model.args.vocab is None:
+                    raise ValueError("'vocab' has not been set.")
                 word = self.model.args.vocab.idx2word[str(word_id)]
                 if word == "<end>":
                     break
@@ -101,7 +106,10 @@ class CaptionIconLabeller(BaseIconLabeller):
         def inner_batched(images: List[np.ndarray]) -> List[str]:
             if len(images) == 0:
                 return []
-            tmp = [self.transform(_preprocess_image(image)) for image in images]
+            tmp = [
+                torch.tensor(self.transform(_preprocess_image(image)))
+                for image in images
+            ]
             transformed = torch.cat(tmp, dim=0)
             sentence_ids = self.model(transformed).tolist()
             return [get_sentence(sentence_id) for sentence_id in sentence_ids]
@@ -113,8 +121,8 @@ class CaptionIconLabeller(BaseIconLabeller):
         return inner(images)
 
 
-def _preprocess_image(image: np.ndarray) -> np.ndarray:
-    image = torch.tensor(np.expand_dims(np.transpose(image, (2, 0, 1)), 0))
-    if isinstance(image, torch.ByteTensor):
-        return image.to(torch.float32).div(255)
-    return image.to(torch.float32)
+def _preprocess_image(image: np.ndarray) -> torch.Tensor:
+    tensor_image = torch.tensor(np.expand_dims(np.transpose(image, (2, 0, 1)), 0))
+    if isinstance(tensor_image, torch.ByteTensor):
+        return tensor_image.to(torch.float32).div(255)
+    return tensor_image.to(torch.float32)

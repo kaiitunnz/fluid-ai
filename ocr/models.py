@@ -48,7 +48,7 @@ class BaseOCR:
                 lines.append((text_box, [text_box]))
             else:
                 lines[-1] = (
-                    lines[-1][0].merge(text_box, (lambda *_: None)),
+                    lines[-1][0].merge(text_box, (lambda *_: "")),
                     lines[-1][1] + [text_box],
                 )
         return [
@@ -65,7 +65,7 @@ class EasyOCR(BaseOCR):
 
     def _recognize(self, image: np.ndarray) -> str:
         results = self._merge_results(self.model.readtext(image))
-        return "\n".join(result.text for result in results)
+        return "\n".join((result.text or "") for result in results)
 
     def recognize(
         self,
@@ -99,7 +99,8 @@ class KerasOCR(BaseOCR):
         else:
             results = self.model.recognize([images])
         results = [
-            "\n".join(r.text for r in self._merge_results(result)) for result in results
+            "\n".join((r.text or "") for r in self._merge_results(result))
+            for result in results
         ]
         if len(results) == 1:
             return results[0]
@@ -111,7 +112,7 @@ class KerasOCR(BaseOCR):
 
 
 class TesseractOCR(BaseOCR):
-    model: pytesseract
+    model: pytesseract  # type: ignore
 
     def __init__(self):
         super().__init__(pytesseract)

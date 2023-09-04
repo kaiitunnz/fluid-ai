@@ -16,7 +16,7 @@ class RicoIconDataset(Dataset):
     image_size: int
     classes: List[str]
     icon_paths: List[Tuple[str, str]]
-    directional_icons: Optional[List[str]]
+    directional_icons: List[str]
     transform: Callable
     directional_transform: Callable
 
@@ -56,9 +56,6 @@ class RicoIconDataset(Dataset):
         return len(self.icon_paths)
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, int]:
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
-
         icon_class, icon_fname = self.icon_paths[idx]
 
         icon_path = os.path.join(self.root, icon_class, icon_fname)

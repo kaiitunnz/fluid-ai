@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Iterable, List
+from typing import Iterable, Iterator, List
 
 import numpy as np
 from ultralytics import YOLO  # type: ignore
@@ -10,7 +10,7 @@ from ..base import UiElement
 
 class BaseUiDetector:
     @abstractmethod
-    def detect(self, screenshots: Iterable[np.ndarray]) -> Iterable[List[UiElement]]:
+    def detect(self, screenshots: Iterable[np.ndarray]) -> Iterator[List[UiElement]]:
         raise NotImplementedError()
 
 
@@ -20,9 +20,11 @@ class YoloUiDetector(BaseUiDetector):
     def __init__(self, model_path: str):
         self.model = YOLO(model_path, task="detect")
 
-    def detect(self, screenshots: Iterable[np.ndarray]) -> Iterable[List[UiElement]]:
+    def detect(self, screenshots: Iterable[np.ndarray]) -> Iterator[List[UiElement]]:
         result_list: List[Results] = self.model.predict(screenshots, verbose=False)
         for results in result_list:
+            if results.boxes is None:
+                continue
             boxes, classes = (
                 results.boxes.data[:, :4].tolist(),
                 results.boxes.data[:, 5].tolist(),

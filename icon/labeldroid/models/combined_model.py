@@ -1,21 +1,28 @@
+from typing import Union
+
 import torch
 import torch.nn as nn
 
-from . import setup
 from ..args import LabelDroidArgs
+from . import convcap, lstm, setup, transformer
 from .image_models import ResNetFeats
 
 
 class LabelDroid(nn.Module):
     encoder: ResNetFeats
-    decoder: nn.Module
+    decoder: transformer.Transformer
     args: LabelDroidArgs
 
     def __init__(self, args: LabelDroidArgs):
         """Load the pretrained ResNet-101 and replace top fc layer."""
         super().__init__()
         self.encoder = ResNetFeats(**args.get_resnetfeats_args())
-        self.decoder = setup(**args.get_decoder_args())
+        decoder = setup(**args.get_decoder_args())
+        if not isinstance(decoder, transformer.Transformer):
+            raise NotImplementedError(
+                f"'{decoder.__class__.__name__}' is not implemented."
+            )
+        self.decoder = decoder
         self.args = args
 
         if args.model_path is not None:

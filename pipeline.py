@@ -1,5 +1,5 @@
 import time
-from typing import Iterable, List
+from typing import Iterable, Iterator, List
 
 import numpy as np
 import pandas as pd
@@ -25,7 +25,7 @@ class TestUiDetectionPipeline:
         self.icon_labeller = icon_labeller
         self.icon_elements = icon_elements
 
-    def detect(self, screenshots: Iterable[np.ndarray]) -> Iterable[List[UiElement]]:
+    def detect(self, screenshots: Iterable[np.ndarray]) -> Iterator[List[UiElement]]:
         for detected in self.detector.detect(list(screenshots)):
             icons = []
             for e in detected:
@@ -92,7 +92,7 @@ class UiDetectionPipeline:
         self.icon_labeller = icon_labeller
         self.icon_elements = icon_elements
 
-    def detect(self, screenshots: Iterable[np.ndarray]) -> Iterable[List[UiElement]]:
+    def detect(self, screenshots: Iterable[np.ndarray]) -> Iterator[List[UiElement]]:
         for detected in self.detector.detect(screenshots):
             textual = []
             icons = []
