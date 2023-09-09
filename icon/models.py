@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import List, Optional, Union
+from typing import Callable, List, Optional, Union
 
 import numpy as np
 import torch
@@ -22,8 +22,12 @@ class BaseIconLabeller:
     ) -> Union[str, List[str]]:
         raise NotImplementedError()
 
-    def process(self, elements: List[UiElement]):
-        images = [e.get_cropped_image() for e in elements]
+    def process(
+        self,
+        elements: List[UiElement],
+        loader: Optional[Callable[[str], np.ndarray]] = None,
+    ):
+        images = [e.get_cropped_image(loader) for e in elements]
         labels = self.label(images)
         for e, labels in zip(elements, labels):
             e.info["icon_label"] = labels

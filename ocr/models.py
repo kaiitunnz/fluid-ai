@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Any, Iterable, List, Tuple, Union
+from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
 
 import cv2
 import easyocr  # type: ignore
@@ -26,8 +26,12 @@ class BaseOCR:
     def _get_text_box(self, result: Any) -> TextBox:
         raise NotImplementedError()
 
-    def process(self, elements: List[UiElement]):
-        images = [e.get_cropped_image() for e in elements]
+    def process(
+        self,
+        elements: List[UiElement],
+        loader: Optional[Callable[[str], np.ndarray]] = None,
+    ):
+        images = [e.get_cropped_image(loader) for e in elements]
         texts = self.recognize(images)
         for e, text in zip(elements, texts):
             e.info["text"] = text
