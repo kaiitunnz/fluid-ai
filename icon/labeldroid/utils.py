@@ -1,7 +1,7 @@
 import json
 import os
 
-from torchvision import transforms
+from torchvision import transforms  # type: ignore
 
 from .args import LabelDroidArgs
 from .models.combined_model import LabelDroid
@@ -16,7 +16,7 @@ def build_vocab_from_json(idx2word_path: str, word2idx_path: str) -> Vocabulary:
         vocab.idx2word = json.loads(f.read())
     with open(os.path.join(word2idx_path), "r") as f:
         vocab.word2idx = json.loads(f.read())
-    vocab.idx = max(vocab.idx2word.keys())
+    vocab.idx = max(map(int, vocab.idx2word.keys()))
     return vocab
 
 

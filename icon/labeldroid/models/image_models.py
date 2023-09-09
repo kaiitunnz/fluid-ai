@@ -1,8 +1,8 @@
-from typing import Any, Optional, Tuple, Union
+from typing import Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
-from torchvision import models
+from torchvision import models  # type: ignore
 
 
 class ResNetFeats(nn.Module):
@@ -69,3 +69,4 @@ class ResNetFeats(nn.Module):
             att = att.view(images.size(0), -1, att.size(-1))
 
             return att
+        raise NotImplementedError()

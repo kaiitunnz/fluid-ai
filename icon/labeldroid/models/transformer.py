@@ -1,5 +1,5 @@
 import copy, math
-from typing import Callable, Iterable, Optional, Sequence, Tuple
+from typing import Any, Callable, Optional, Tuple
 
 import numpy as np
 import torch
@@ -519,7 +519,7 @@ class Transformer(nn.Module):
         self,
         att_feats: torch.Tensor,
         max_len: int,
-        beam_searcher: ...,
+        beam_searcher: Any,
         start_symbol: int = 1,
         att_masks: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:

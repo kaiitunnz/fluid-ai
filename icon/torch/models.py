@@ -1,6 +1,6 @@
-from typing import List
+from typing import Any, List
 
-import torchvision.models as models
+import torchvision.models as models  # type: ignore
 import torch
 import torch.nn as nn
 
@@ -19,7 +19,7 @@ class ModelWrapper(nn.Module):
     def device(self) -> torch.device:
         return next(self.model.parameters()).device
 
-    def forward(self, x: ...) -> ...:
+    def forward(self, x: Any) -> Any:
         return self.model(x.to(self.device()))
 
 

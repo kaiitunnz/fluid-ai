@@ -1,7 +1,7 @@
 import os
 from typing import List
 
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  # type: ignore
 import torch
 import torch.nn as nn
 

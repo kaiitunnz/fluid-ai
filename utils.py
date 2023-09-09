@@ -2,9 +2,9 @@ import random
 from typing import Dict, List, Tuple
 
 import cv2
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  # type: ignore
 import numpy as np
-from ultralytics.yolo.engine.results import Annotator
+from ultralytics.yolo.engine.results import Annotator  # type: ignore
 
 from .base import UiElement
 
@@ -29,7 +29,7 @@ def _get_color_map(elem: List[UiElement]) -> Dict[str, _PlotColor]:
         bg_color = tuple(random.choices(range(256), k=3))
         while bg_color in color_map:
             bg_color = tuple(random.choices(range(256), k=3))
-        color_map[elem_class] = _PlotColor(bg_color)
+        color_map[elem_class] = _PlotColor(bg_color)  # type: ignore
     return color_map
 
 

@@ -1,12 +1,12 @@
 import json
 import os
-from tqdm import tqdm
+from tqdm import tqdm  # type: ignore
 from typing import List, NamedTuple, Optional, Tuple
 
-import pandas as pd
+import pandas as pd  # type: ignore
 import torch
 import torch.nn as nn
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix  # type: ignore
 from torch.utils.data import DataLoader
 
 from .models import ModelWrapper
@@ -160,7 +160,7 @@ def train(
 
     train_loss, val_loss = [], []
     train_acc, val_acc = [], []
-    best_val_acc = 0
+    best_val_acc: float = 0.0
 
     for epoch in range(num_epochs):
         print(f"Epoch {epoch+1} of {num_epochs}")

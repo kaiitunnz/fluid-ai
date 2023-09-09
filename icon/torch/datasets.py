@@ -1,10 +1,10 @@
 import os
-from PIL import Image
+from PIL import Image  # type: ignore
 from typing import Callable, List, Optional, Tuple
 
 import torch
 from torch.utils.data import DataLoader, Dataset
-from torchvision import transforms
+from torchvision import transforms  # type: ignore
 
 IMAGE_SIZE = 224
 

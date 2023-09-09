@@ -2,7 +2,7 @@ import time
 from typing import Iterable, Iterator, List
 
 import numpy as np
-import pandas as pd
+import pandas as pd  # type: ignore
 
 from .base import UiElement
 from .icon import BaseIconLabeller

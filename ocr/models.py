@@ -2,10 +2,10 @@ from abc import abstractmethod
 from typing import Any, Iterable, List, Tuple, Union
 
 import cv2
-import easyocr
-import keras_ocr
+import easyocr  # type: ignore
+import keras_ocr  # type: ignore
 import numpy as np
-import pytesseract
+import pytesseract  # type: ignore
 
 from .utils import TextBox
 from ..base import UiElement
@@ -78,7 +78,7 @@ class EasyOCR(BaseOCR):
     def _get_text_box(self, result: Any) -> TextBox:
         box = tuple(tuple(v) for v in result[0])
         text = result[1]
-        return TextBox(box, text)
+        return TextBox(box, text)  # type: ignore
 
 
 class KerasOCR(BaseOCR):
@@ -108,7 +108,7 @@ class KerasOCR(BaseOCR):
 
     @staticmethod
     def _get_text_box(result: Any) -> TextBox:
-        return TextBox(tuple(tuple(row) for row in result[1]), result[0])
+        return TextBox(tuple(tuple(row) for row in result[1]), result[0])  # type: ignore
 
 
 class TesseractOCR(BaseOCR):

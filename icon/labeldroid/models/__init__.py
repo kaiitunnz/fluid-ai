@@ -1,6 +1,4 @@
-from typing import Optional, Union
-
-import torch.nn as nn
+from typing import Union
 
 from . import *
 from . import convcap, lstm, transformer
@@ -20,6 +18,7 @@ def setup(
     use_bn: bool = True,
     vocab_len: int = 0,
 ) -> Union[lstm.DecoderRNN, convcap.convcap, transformer.Transformer]:
+    model: Union[lstm.DecoderRNN, convcap.convcap, transformer.Transformer]
     # lstm
     if caption_model == "lstm":
         model = lstm.DecoderRNN(

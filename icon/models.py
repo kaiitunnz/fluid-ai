@@ -3,7 +3,7 @@ from typing import List, Optional, Union
 
 import numpy as np
 import torch
-from torchvision import transforms
+from torchvision import transforms  # type: ignore
 
 from ..base import UiElement
 from .labeldroid import utils as labeldroid_utils

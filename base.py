@@ -1,4 +1,5 @@
-from typing import Any, Dict, Tuple, Union
+from PIL import Image  # type: ignore
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 from typing_extensions import Self
 
 import numpy as np
@@ -13,7 +14,7 @@ UiInfo = Dict[str, Any]
 class UiElement:
     name: str
     bbox: BBox
-    screenshot: np.ndarray
+    screenshot: Union[str, np.ndarray]
     info: UiInfo
 
     def __init__(self, name: str, bbox: BBox, screenshot: np.ndarray):
@@ -61,10 +62,19 @@ class UiElement:
         (x0, y0), (x1, y1) = self.bbox
         return abs(x0 - x1), abs(y0 - y1)
 
-    def get_cropped_image(self) -> np.ndarray:
+    def get_cropped_image(
+        self, loader: Optional[Callable[[str], np.ndarray]] = None
+    ) -> np.ndarray:
+        if isinstance(self.screenshot, str):
+            if loader is None:
+                screenshot = np.asarray(Image.open(self.screenshot))
+            else:
+                screenshot = loader(self.screenshot)
+        else:
+            screenshot = self.screenshot
         (x0, y0), (x1, y1) = self.bbox
         x0, y0, x1, y1 = int(x0), int(y0), int(x1), int(y1)
-        return self.screenshot[y0:y1, x0:x1]
+        return screenshot[y0:y1, x0:x1]
 
     def __repr__(self) -> str:
         return f"UiElement(name={self.name}, bbox={self.bbox}, info={self.info})"
