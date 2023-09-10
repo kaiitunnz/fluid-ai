@@ -14,7 +14,7 @@ UiInfo = Dict[str, Any]
 class UiElement:
     name: str
     bbox: BBox
-    screenshot: Union[str, np.ndarray]
+    screenshot: Union[str, np.ndarray, None]
     info: UiInfo
 
     def __init__(self, name: str, bbox: BBox, screenshot: np.ndarray):
@@ -63,9 +63,13 @@ class UiElement:
         return abs(x0 - x1), abs(y0 - y1)
 
     def get_cropped_image(
-        self, loader: Optional[Callable[[str], np.ndarray]] = None
+        self, loader: Optional[Callable[..., np.ndarray]] = None
     ) -> np.ndarray:
-        if isinstance(self.screenshot, str):
+        if self.screenshot is None:
+            if loader is None:
+                raise ValueError("No loader provided.")
+            screenshot = loader()
+        elif isinstance(self.screenshot, str):
             if loader is None:
                 screenshot = np.asarray(Image.open(self.screenshot))
             else:
