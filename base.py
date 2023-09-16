@@ -17,7 +17,7 @@ class UiElement:
     screenshot: Union[str, np.ndarray, None]
     info: UiInfo
 
-    def __init__(self, name: str, bbox: BBox, screenshot: np.ndarray):
+    def __init__(self, name: str, bbox: BBox, screenshot: Union[str, np.ndarray, None]):
         """
         Parameters:
         ----------
