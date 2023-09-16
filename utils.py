@@ -22,8 +22,8 @@ class _PlotColor:
         self.text = (0, 0, 0) if _compute_luminance(*bg) > 0.5 else (255, 255, 255)
 
 
-def _get_color_map(elem: List[UiElement]) -> Dict[str, _PlotColor]:
-    elem_classes = set(e.name for e in elem)
+def _get_color_map(elems: List[UiElement]) -> Dict[str, _PlotColor]:
+    elem_classes = set(e.name for e in elems)
     color_map = {}
     for elem_class in elem_classes:
         bg_color = tuple(random.choices(range(256), k=3))
@@ -33,14 +33,14 @@ def _get_color_map(elem: List[UiElement]) -> Dict[str, _PlotColor]:
     return color_map
 
 
-def plot_ui_elements(img: np.ndarray, elem: List[UiElement], scale: float = 1.0):
+def plot_ui_elements(img: np.ndarray, elems: List[UiElement], scale: float = 1.0):
     plt.xticks([], [])
     plt.yticks([], [])
-    color_map = _get_color_map(elem)
+    color_map = _get_color_map(elems)
     h, w, *_ = img.shape
     img = cv2.resize(img, (int(w * scale), int(h * scale)))
     annotator = Annotator(img)
-    for i, e in enumerate(elem, 1):
+    for i, e in enumerate(elems, 1):
         color = color_map[e.name]
         (x0, y0), (x1, y1) = e.bbox
         bbox = tuple(int(e * scale) for e in (x0, y0, x1, y1))
