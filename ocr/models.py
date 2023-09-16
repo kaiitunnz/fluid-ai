@@ -29,7 +29,7 @@ class BaseOCR:
     def process(
         self,
         elements: List[UiElement],
-        loader: Optional[Callable[[str], np.ndarray]] = None,
+        loader: Optional[Callable[..., np.ndarray]] = None,
     ):
         images = [e.get_cropped_image(loader) for e in elements]
         texts = self.recognize(images)
@@ -63,20 +63,39 @@ class BaseOCR:
 
 class EasyOCR(BaseOCR):
     model: easyocr.Reader
+    batch_size: int
+    image_size: Tuple[int, int]
 
-    def __init__(self):
+    def __init__(self, batch_size: int = 1, image_size: Tuple[int, int] = (224, 224)):
+        if batch_size < 1:
+            raise ValueError("Invalid batch size.")
+        self.batch_size = batch_size
+        self.image_size = image_size
         super().__init__(easyocr.Reader(["en"]))
 
     def _recognize(self, image: np.ndarray) -> str:
         results = self._merge_results(self.model.readtext(image))
         return "\n".join((result.text or "") for result in results)
 
+    def _recognize_batched(self, images: List[np.ndarray]) -> List[str]:
+        unmerged = self.model.readtext_batched(
+            images,
+            n_width=self.image_size[0],
+            n_height=self.image_size[1],
+            batch_size=self.batch_size,
+        )
+        results = [self._merge_results(each) for each in unmerged]
+
+        return ["\n".join((box.text or "") for box in result) for result in results]
+
     def recognize(
         self,
         images: Union[np.ndarray, List[np.ndarray]],
     ) -> Union[str, List[str]]:
         if isinstance(images, list):
-            return [self._recognize(image) for image in images]
+            if self.batch_size <= 1:
+                return [self._recognize(image) for image in images]
+            return self._recognize_batched(images)
         return self._recognize(images)
 
     def _get_text_box(self, result: Any) -> TextBox:
