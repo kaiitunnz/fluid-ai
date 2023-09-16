@@ -25,7 +25,7 @@ class BaseIconLabeller:
     def process(
         self,
         elements: List[UiElement],
-        loader: Optional[Callable[[str], np.ndarray]] = None,
+        loader: Optional[Callable[..., np.ndarray]] = None,
     ):
         images = [e.get_cropped_image(loader) for e in elements]
         labels = self.label(images)
@@ -38,9 +38,14 @@ class ClassifierIconLabeller(BaseIconLabeller):
     transform: transforms.Compose
     batched: bool
 
-    def __init__(self, model_path: str, batched: bool = False):
+    def __init__(
+        self,
+        model_path: str,
+        batched: bool = False,
+        device: torch.device = torch.device("cpu"),
+    ):
         super().__init__()
-        self.model = load_model(model_path)
+        self.model = load_model(model_path).to(device)
         self.transform = get_infer_transform(self.model.pretrained)
         self.batched = batched
 
@@ -56,10 +61,7 @@ class ClassifierIconLabeller(BaseIconLabeller):
         def inner_batched(images: List[np.ndarray]) -> List[str]:
             if len(images) == 0:
                 return []
-            tmp = [
-                torch.tensor(self.transform(_preprocess_image(image)))
-                for image in images
-            ]
+            tmp = [self.transform(_preprocess_image(image)) for image in images]
             transformed = torch.cat(tmp, dim=0)
             _, class_indices = torch.max(self.model(transformed).data, -1)
             return [self.model.classes[class_idx.item()] for class_idx in class_indices]
@@ -81,10 +83,11 @@ class CaptionIconLabeller(BaseIconLabeller):
         model_path: Optional[str] = None,
         vocab_path: Optional[str] = None,
         batched: bool = False,
+        device: torch.device = torch.device("cpu"),
     ):
         self.model = LabelDroid(
             LabelDroidArgs(model_path=model_path, vocab_path=vocab_path)
-        )
+        ).to(device)
         self.transform = labeldroid_utils.get_infer_transform()
         self.batched = batched
 
