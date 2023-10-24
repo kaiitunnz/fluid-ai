@@ -61,6 +61,20 @@ class BaseOCR:
         ]
 
 
+class DummyOCR(BaseOCR):
+    model: None
+
+    def __init__(self):
+        super().__init__(None)
+
+    def recognize(self, _: Any) -> List:
+        return []
+
+    def _get_text_box(self, _: Any) -> TextBox:
+        box = ((0, 0), (0, 0), (0, 0), (0, 0))
+        return TextBox(box)
+
+
 class EasyOCR(BaseOCR):
     model: easyocr.Reader
     batch_size: int

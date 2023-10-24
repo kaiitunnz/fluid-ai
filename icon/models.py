@@ -33,6 +33,14 @@ class BaseIconLabeller:
             e.info["icon_label"] = labels
 
 
+class DummyIconLabeller(BaseIconLabeller):
+    def label(
+        self,
+        images: Union[np.ndarray, List[np.ndarray]],
+    ) -> List[str]:
+        return []
+
+
 class ClassifierIconLabeller(BaseIconLabeller):
     model: ModelWrapper
     transform: transforms.Compose
