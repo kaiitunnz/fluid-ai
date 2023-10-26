@@ -4,11 +4,10 @@ from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
 import cv2
 import easyocr  # type: ignore
 import keras_ocr  # type: ignore
-import numpy as np
 import pytesseract  # type: ignore
 
 from .utils import TextBox
-from ..base import UiElement
+from ..base import Array, UiElement
 
 
 class BaseOCR:
@@ -18,7 +17,7 @@ class BaseOCR:
     @abstractmethod
     def recognize(
         self,
-        images: Union[np.ndarray, List[np.ndarray]],
+        images: Union[Array, List[Array]],
     ) -> Union[str, List[str]]:
         raise NotImplementedError()
 
@@ -29,7 +28,7 @@ class BaseOCR:
     def process(
         self,
         elements: List[UiElement],
-        loader: Optional[Callable[..., np.ndarray]] = None,
+        loader: Optional[Callable[..., Array]] = None,
     ):
         images = [e.get_cropped_image(loader) for e in elements]
         texts = self.recognize(images)
@@ -87,11 +86,11 @@ class EasyOCR(BaseOCR):
         self.image_size = image_size
         super().__init__(easyocr.Reader(["en"]))
 
-    def _recognize(self, image: np.ndarray) -> str:
+    def _recognize(self, image: Array) -> str:
         results = self._merge_results(self.model.readtext(image))
         return "\n".join((result.text or "") for result in results)
 
-    def _recognize_batched(self, images: List[np.ndarray]) -> List[str]:
+    def _recognize_batched(self, images: List[Array]) -> List[str]:
         unmerged = self.model.readtext_batched(
             images,
             n_width=self.image_size[0],
@@ -104,7 +103,7 @@ class EasyOCR(BaseOCR):
 
     def recognize(
         self,
-        images: Union[np.ndarray, List[np.ndarray]],
+        images: Union[Array, List[Array]],
     ) -> Union[str, List[str]]:
         if isinstance(images, list):
             if self.batch_size <= 1:
@@ -126,7 +125,7 @@ class KerasOCR(BaseOCR):
 
     def recognize(
         self,
-        images: Union[np.ndarray, List[np.ndarray]],
+        images: Union[Array, List[Array]],
     ) -> Union[str, List[str]]:
         if isinstance(images, list):
             # results = self.model.recognize(images)
@@ -156,7 +155,7 @@ class TesseractOCR(BaseOCR):
 
     def recognize(
         self,
-        images: Union[np.ndarray, List[np.ndarray]],
+        images: Union[Array, List[Array]],
     ) -> Union[str, List[str]]:
         if isinstance(images, list):
             return [

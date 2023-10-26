@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from torchvision import transforms  # type: ignore
 
-from ..base import UiElement
+from ..base import Array, UiElement
 from .labeldroid import utils as labeldroid_utils
 from .labeldroid.args import LabelDroidArgs
 from .labeldroid.models.combined_model import LabelDroid
@@ -18,14 +18,14 @@ class BaseIconLabeller:
     @abstractmethod
     def label(
         self,
-        images: Union[np.ndarray, List[np.ndarray]],
+        images: Union[Array, List[Array]],
     ) -> Union[str, List[str]]:
         raise NotImplementedError()
 
     def process(
         self,
         elements: List[UiElement],
-        loader: Optional[Callable[..., np.ndarray]] = None,
+        loader: Optional[Callable[..., Array]] = None,
     ):
         images = [e.get_cropped_image(loader) for e in elements]
         labels = self.label(images)
@@ -36,7 +36,7 @@ class BaseIconLabeller:
 class DummyIconLabeller(BaseIconLabeller):
     def label(
         self,
-        images: Union[np.ndarray, List[np.ndarray]],
+        images: Union[Array, List[Array]],
     ) -> List[str]:
         return []
 
@@ -57,16 +57,14 @@ class ClassifierIconLabeller(BaseIconLabeller):
         self.transform = get_infer_transform(self.model.pretrained)
         self.batched = batched
 
-    def label(
-        self, images: Union[np.ndarray, List[np.ndarray]]
-    ) -> Union[str, List[str]]:
+    def label(self, images: Union[Array, List[Array]]) -> Union[str, List[str]]:
         # Assume that the images are of shape (h, w, c).
-        def inner(image: np.ndarray) -> str:
+        def inner(image: Array) -> str:
             transformed = self.transform(_preprocess_image(image))
             _, class_idx = torch.max(self.model(transformed).data, 1)
             return self.model.classes[class_idx.item()]
 
-        def inner_batched(images: List[np.ndarray]) -> List[str]:
+        def inner_batched(images: List[Array]) -> List[str]:
             if len(images) == 0:
                 return []
             tmp = [self.transform(_preprocess_image(image)) for image in images]
@@ -99,9 +97,7 @@ class CaptionIconLabeller(BaseIconLabeller):
         self.transform = labeldroid_utils.get_infer_transform()
         self.batched = batched
 
-    def label(
-        self, images: Union[np.ndarray, List[np.ndarray]]
-    ) -> Union[str, List[str]]:
+    def label(self, images: Union[Array, List[Array]]) -> Union[str, List[str]]:
         def get_sentence(sentence_id: List[int]) -> str:
             tmp = []
             for word_id in sentence_id:
@@ -113,12 +109,12 @@ class CaptionIconLabeller(BaseIconLabeller):
                 tmp.append(word)
             return " ".join(tmp[1:])
 
-        def inner(image: np.ndarray) -> str:
+        def inner(image: Array) -> str:
             transformed = self.transform(_preprocess_image(image))
             sentence_ids = self.model(transformed).tolist()
             return get_sentence(sentence_ids[0])
 
-        def inner_batched(images: List[np.ndarray]) -> List[str]:
+        def inner_batched(images: List[Array]) -> List[str]:
             if len(images) == 0:
                 return []
             tmp = [
@@ -136,8 +132,9 @@ class CaptionIconLabeller(BaseIconLabeller):
         return inner(images)
 
 
-def _preprocess_image(image: np.ndarray) -> torch.Tensor:
-    tensor_image = torch.tensor(np.expand_dims(np.transpose(image, (2, 0, 1)), 0))
+def _preprocess_image(image: Array) -> torch.Tensor:
+    tensor_image = image if isinstance(image, torch.Tensor) else torch.tensor(image)
+    tensor_image = torch.unsqueeze(torch.permute(tensor_image, (2, 0, 1)), 0)
     if isinstance(tensor_image, torch.ByteTensor):
         return tensor_image.to(torch.float32).div(255)
     return tensor_image.to(torch.float32)

@@ -6,13 +6,13 @@ import torch
 from ultralytics import YOLO  # type: ignore
 from ultralytics.yolo.engine.results import Results  # type: ignore
 
-from ..base import UiElement
+from ..base import Array, UiElement
 
 
 class BaseUiDetector:
     @abstractmethod
     def detect(
-        self, screenshots: Iterable[np.ndarray], save_img: bool = True
+        self, screenshots: Iterable[Array], save_img: bool = True
     ) -> Iterator[List[UiElement]]:
         raise NotImplementedError()
 
@@ -27,8 +27,9 @@ class YoloUiDetector(BaseUiDetector):
         self.device = device
 
     def detect(
-        self, screenshots: Iterable[np.ndarray], save_img: bool = True
+        self, screenshots: Iterable[Array], save_img: bool = True
     ) -> Iterator[List[UiElement]]:
+        screenshots = [np.asarray(screenshot) for screenshot in screenshots]
         result_list: List[Results] = self.model.predict(
             screenshots, verbose=False, device=self.device
         )

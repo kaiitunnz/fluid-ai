@@ -2,8 +2,10 @@ from PIL import Image  # type: ignore
 from typing import Any, Callable, Dict, Optional, Tuple, Union
 from typing_extensions import Self
 
+import torch
 import numpy as np
 
+Array = Union[np.ndarray, torch.Tensor]
 Number = Union[int, float]
 Vertex = Tuple[Number, Number]
 Box = Tuple[Vertex, Vertex, Vertex, Vertex]
@@ -14,10 +16,10 @@ UiInfo = Dict[str, Any]
 class UiElement:
     name: str
     bbox: BBox
-    screenshot: Union[str, np.ndarray, None]
+    screenshot: Union[str, Array, None]
     info: UiInfo
 
-    def __init__(self, name: str, bbox: BBox, screenshot: Union[str, np.ndarray, None]):
+    def __init__(self, name: str, bbox: BBox, screenshot: Union[str, Array, None]):
         """
         Parameters:
         ----------
@@ -38,7 +40,7 @@ class UiElement:
         cls,
         name: str,
         xywh: Tuple[Number, Number, Number, Number],
-        screenshot: np.ndarray,
+        screenshot: Array,
         is_center: bool = False,
     ) -> Self:
         x, y, w, h = xywh
@@ -62,9 +64,7 @@ class UiElement:
         (x0, y0), (x1, y1) = self.bbox
         return abs(x0 - x1), abs(y0 - y1)
 
-    def get_cropped_image(
-        self, loader: Optional[Callable[..., np.ndarray]] = None
-    ) -> np.ndarray:
+    def get_cropped_image(self, loader: Optional[Callable[..., Array]] = None) -> Array:
         if self.screenshot is None:
             if loader is None:
                 raise ValueError("No loader provided.")

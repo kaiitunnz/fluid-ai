@@ -4,7 +4,7 @@ from typing import Iterable, Iterator, List
 import numpy as np
 import pandas as pd  # type: ignore
 
-from .base import UiElement
+from .base import Array, UiElement
 from .icon import BaseIconLabeller
 from .ocr import BaseOCR
 from .ui.detection import BaseUiDetector
@@ -92,7 +92,7 @@ class UiDetectionPipeline:
         self.icon_labeller = icon_labeller
         self.icon_elements = icon_elements
 
-    def detect(self, screenshots: Iterable[np.ndarray]) -> Iterator[List[UiElement]]:
+    def detect(self, screenshots: Iterable[Array]) -> Iterator[List[UiElement]]:
         for detected in self.detector.detect(screenshots):
             textual = []
             icons = []
@@ -105,7 +105,7 @@ class UiDetectionPipeline:
             self.icon_labeller.process(icons)
             yield detected
 
-    def benchmark(self, screenshots: Iterable[np.ndarray]) -> pd.DataFrame:
+    def benchmark(self, screenshots: Iterable[Array]) -> pd.DataFrame:
         textual_elements = set(self.textual_elements)
         icon_elements = set(self.icon_elements)
         columns = [
