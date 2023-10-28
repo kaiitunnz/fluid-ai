@@ -6,15 +6,20 @@ import torch
 from ultralytics import YOLO  # type: ignore
 from ultralytics.yolo.engine.results import Results  # type: ignore
 
-from ..base import Array, UiElement
+from ..base import Array, UiDetectionModule, UiElement
 
 
-class BaseUiDetector:
+class BaseUiDetector(UiDetectionModule):
     @abstractmethod
     def detect(
         self, screenshots: Iterable[Array], save_img: bool = True
     ) -> Iterator[List[UiElement]]:
         raise NotImplementedError()
+
+    def __call__(
+        self, screenshots: Iterable[Array], save_img: bool = True
+    ) -> Iterator[List[UiElement]]:
+        return self.detect(screenshots, save_img)
 
 
 class YoloUiDetector(BaseUiDetector):

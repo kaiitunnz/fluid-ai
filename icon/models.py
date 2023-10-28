@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from torchvision import transforms  # type: ignore
 
-from ..base import Array, UiElement
+from ..base import Array, UiElement, UiDetectionModule
 from .labeldroid import utils as labeldroid_utils
 from .labeldroid.args import LabelDroidArgs
 from .labeldroid.models.combined_model import LabelDroid
@@ -14,13 +14,20 @@ from .torch.models import ModelWrapper
 from .torch.utils import load_model
 
 
-class BaseIconLabeller:
+class BaseIconLabeller(UiDetectionModule):
     @abstractmethod
     def label(
         self,
         images: Union[Array, List[Array]],
     ) -> Union[str, List[str]]:
         raise NotImplementedError()
+
+    def __call__(
+        self,
+        elements: List[UiElement],
+        loader: Optional[Callable[..., Array]] = None,
+    ):
+        self.process(elements, loader)
 
     def process(
         self,

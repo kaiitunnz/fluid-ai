@@ -1,5 +1,6 @@
 from PIL import Image  # type: ignore
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+from abc import abstractmethod
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 from typing_extensions import Self
 
 import torch
@@ -82,3 +83,9 @@ class UiElement:
 
     def __repr__(self) -> str:
         return f"UiElement(name={self.name}, bbox={self.bbox}, info={self.info})"
+
+
+class UiDetectionModule:
+    @abstractmethod
+    def __call__(self, *args, **kwargs):
+        raise NotImplementedError("A UiDetectionModule class must be callable.")

@@ -7,10 +7,10 @@ import keras_ocr  # type: ignore
 import pytesseract  # type: ignore
 
 from .utils import TextBox
-from ..base import Array, UiElement
+from ..base import Array, UiDetectionModule, UiElement
 
 
-class BaseOCR:
+class BaseOCR(UiDetectionModule):
     def __init__(self, model: Any):
         self.model = model
 
@@ -24,6 +24,13 @@ class BaseOCR:
     @abstractmethod
     def _get_text_box(self, result: Any) -> TextBox:
         raise NotImplementedError()
+
+    def __call__(
+        self,
+        elements: List[UiElement],
+        loader: Optional[Callable[..., Array]] = None,
+    ):
+        self.process(elements, loader)
 
     def process(
         self,
