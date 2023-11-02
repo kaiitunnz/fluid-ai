@@ -1,6 +1,6 @@
 from PIL import Image  # type: ignore
 from abc import abstractmethod
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 from typing_extensions import Self
 
 import torch
@@ -8,9 +8,9 @@ import numpy as np
 
 Array = Union[np.ndarray, torch.Tensor]
 Number = Union[int, float]
-Vertex = Tuple[Number, Number]
-Box = Tuple[Vertex, Vertex, Vertex, Vertex]
-BBox = Tuple[Vertex, Vertex]
+Vertex = Tuple[Number, Number]  # (x, y)
+Box = Tuple[Vertex, Vertex, Vertex, Vertex]  # ((x0, y0), (x1, y1), (x2, y2), (x3, y3))
+BBox = Tuple[Vertex, Vertex]  # ((x0, y0), (x3, y3))
 UiInfo = Dict[str, Any]
 
 
@@ -20,7 +20,13 @@ class UiElement:
     screenshot: Union[str, Array, None]
     info: UiInfo
 
-    def __init__(self, name: str, bbox: BBox, screenshot: Union[str, Array, None]):
+    def __init__(
+        self,
+        name: str,
+        bbox: BBox,
+        screenshot: Optional[Union[str, Array]] = None,
+        info: Optional[UiInfo] = None,
+    ):
         """
         Parameters:
         ----------
