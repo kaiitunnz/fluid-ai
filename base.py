@@ -40,7 +40,7 @@ class UiElement:
         self.name = name
         self.bbox = bbox
         self.screenshot = screenshot
-        self.info = {}
+        self.info = {} if info is None else info
 
     @classmethod
     def from_xywh(
