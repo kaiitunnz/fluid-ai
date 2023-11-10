@@ -4,7 +4,7 @@ from typing import Dict, List, Tuple
 import cv2
 import matplotlib.pyplot as plt  # type: ignore
 import numpy as np
-from ultralytics.yolo.engine.results import Annotator  # type: ignore
+from ultralytics.engine.results import Annotator  # type: ignore
 
 from .base import UiElement
 

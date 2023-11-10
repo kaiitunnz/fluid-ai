@@ -4,7 +4,7 @@ from typing import Iterable, Iterator, List
 import numpy as np
 import torch
 from ultralytics import YOLO  # type: ignore
-from ultralytics.yolo.engine.results import Results  # type: ignore
+from ultralytics.engine.results import Results  # type: ignore
 
 from ..base import Array, UiDetectionModule, UiElement
 
