@@ -35,7 +35,7 @@ class BaseUiMatching(UiDetectionModule):
 class IouUiMatching(BaseUiMatching):
     threshold: float
 
-    def __init__(self, iou_threshold: float = 0.8):
+    def __init__(self, iou_threshold: float = 0.6):
         self.threshold = iou_threshold
 
     def match(self, base: List[UiElement], other: List[UiElement]) -> List[UiElement]:
@@ -231,8 +231,8 @@ class HogUiMatching(FeatureUiMatching):
 
     def __init__(
         self,
-        iou_threshold: float = 0.4,
-        similarity_threshold: float = 0.6,
+        iou_threshold: float = 0.6,
+        similarity_threshold: float = 0.2,
         win_size: Tuple[int, int] = (64, 64),
         block_size: Tuple[int, int] = (16, 16),
         block_stride: Tuple[int, int] = (8, 8),
@@ -264,7 +264,7 @@ class GistUiMatching(FeatureUiMatching):
 
     def __init__(
         self,
-        iou_threshold: float = 0.4,
+        iou_threshold: float = 0.3,
         similarity_threshold: float = 0.8,
         size: Tuple[int, int] = (64, 64),
     ):
