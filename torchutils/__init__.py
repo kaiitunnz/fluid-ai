@@ -1,8 +1,9 @@
 from .training import (
     EarlyStopper,
     EvalConfig,
-    TrainConfig,
     ModelWrapper,
+    RandomSampler,
+    TrainConfig,
     eval,
     train_one_epoch,
     train,

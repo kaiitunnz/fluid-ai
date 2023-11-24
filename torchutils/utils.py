@@ -23,7 +23,7 @@ def save_model(
     torch.save(
         {
             "epoch": epoch,
-            "model": model,
+            "model": model.cpu(),
             "optimizer_state_dict": optimizer.state_dict(),
             "loss": criterion,
         },

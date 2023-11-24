@@ -1,16 +1,61 @@
 import json
 import os
-from typing import List, NamedTuple, Optional, Tuple
+from typing import Dict, List, NamedTuple, Optional, Tuple, Union
 
 import pandas as pd  # type: ignore
 import torch
 import torch.nn as nn
 from sklearn.metrics import confusion_matrix  # type: ignore
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset, Sampler
 from tqdm import tqdm  # type: ignore
 
 from .utils import load_model, save_model, save_plots
 from .wrapper import ModelWrapper
+
+
+class RandomSampler(Sampler):
+    """
+    Adapted from https://github.com/ufoym/imbalanced-dataset-sampler/tree/master.
+    """
+
+    dataset: Dataset
+    indices: List[int]
+    num_samples: int
+    weights: torch.Tensor
+
+    def __init__(
+        self,
+        dataset: Dataset,
+        labels: List[int],
+        ratio: Optional[Union[List[float], Dict[int, float]]],
+    ):
+        self.indices = list(range(len(dataset)))  # type: ignore
+        self.num_samples = len(self.indices)
+
+        df = pd.DataFrame({"label": labels}, index=self.indices)
+        df = df.sort_index()
+
+        label_to_count = df["label"].value_counts()
+        if ratio is None:
+            label_set = set(labels)
+            ratio_df = pd.Series([1.0] * len(label_set), index=list(label_set))
+        elif isinstance(ratio, list):
+            ratio_df = pd.Series(ratio)
+        else:
+            index, values = zip(*ratio.items())
+            ratio_df = pd.Series(values, index=index)
+        weights = ratio_df[df["label"]] / label_to_count[df["label"]]
+
+        self.weights = torch.DoubleTensor(weights.to_list())
+
+    def __iter__(self):
+        return (
+            self.indices[i]
+            for i in torch.multinomial(self.weights, self.num_samples, replacement=True)
+        )
+
+    def __len__(self):
+        return self.num_samples
 
 
 class EarlyStopper:
@@ -42,6 +87,7 @@ class TrainConfig(NamedTuple):
     save_period: int = 5
     pretrained: bool = True
     overwrite: bool = False
+    verbose: bool = True
 
 
 class EvalConfig(NamedTuple):
@@ -49,6 +95,7 @@ class EvalConfig(NamedTuple):
     classes: Optional[List[str]]
     device: torch.device = torch.device("cpu")
     overwrite: bool = False
+    verbose: bool = True
 
 
 def _init_training(train_config: TrainConfig):
@@ -84,12 +131,13 @@ def train_one_epoch(
     optimizer: torch.optim.Optimizer,
     criterion: nn.Module,
     device: torch.device,
+    verbose: bool,
 ) -> Tuple[float, float]:
     model.train()
     train_running_loss = 0.0
     train_running_correct = 0
     counter = 0
-    for image, labels in tqdm(train_loader):
+    for image, labels in tqdm(train_loader, disable=not verbose):
         counter += 1
         image = image.to(device)
         labels = labels.to(device)
@@ -109,14 +157,18 @@ def train_one_epoch(
 
 
 def validate(
-    model: nn.Module, val_loader: DataLoader, criterion: nn.Module, device: torch.device
+    model: nn.Module,
+    val_loader: DataLoader,
+    criterion: nn.Module,
+    device: torch.device,
+    verbose: bool,
 ) -> Tuple[float, float]:
     model.eval()
     valid_running_loss = 0.0
     valid_running_correct = 0
     counter = 0
     with torch.no_grad():
-        for _, (image, labels) in enumerate(tqdm(val_loader)):
+        for _, (image, labels) in enumerate(tqdm(val_loader, disable=not verbose)):
             counter += 1
             image = image.to(device)
             labels = labels.to(device)
@@ -165,9 +217,11 @@ def train(
     for epoch in range(num_epochs):
         print(f"Epoch {epoch+1} of {num_epochs}")
         train_epoch_loss, train_epoch_acc = train_one_epoch(
-            model, train_loader, optimizer, criterion, device
+            model, train_loader, optimizer, criterion, device, train_config.verbose
         )
-        val_epoch_loss, val_epoch_acc = validate(model, val_loader, criterion, device)
+        val_epoch_loss, val_epoch_acc = validate(
+            model, val_loader, criterion, device, train_config.verbose
+        )
 
         if scheduler is not None:
             try:
@@ -247,7 +301,9 @@ def eval(
     valid_running_correct = 0
     counter = 0
     with torch.no_grad():
-        for _, (image, labels) in enumerate(tqdm(test_loader)):
+        for _, (image, labels) in enumerate(
+            tqdm(test_loader, disable=not eval_config.verbose)
+        ):
             counter += 1
             image = image.to(device)
             labels = labels.to(device)
