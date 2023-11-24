@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt  # type: ignore
 import torch
 import torch.nn as nn
 
-from .models import ModelWrapper
+from .wrapper import ModelWrapper
 
 
 def save_model(
@@ -15,6 +15,11 @@ def save_model(
     optimizer: torch.optim.Optimizer,
     criterion: nn.Module,
 ):
+    """
+    Save the model for inference.
+    """
+    for params in model.parameters():
+        params.requires_grad = False
     torch.save(
         {
             "epoch": epoch,

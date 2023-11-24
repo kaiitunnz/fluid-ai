@@ -1,6 +1,5 @@
 import json
 import os
-from tqdm import tqdm  # type: ignore
 from typing import List, NamedTuple, Optional, Tuple
 
 import pandas as pd  # type: ignore
@@ -8,9 +7,10 @@ import torch
 import torch.nn as nn
 from sklearn.metrics import confusion_matrix  # type: ignore
 from torch.utils.data import DataLoader
+from tqdm import tqdm  # type: ignore
 
-from .models import ModelWrapper
 from .utils import load_model, save_model, save_plots
+from .wrapper import ModelWrapper
 
 
 class EarlyStopper:

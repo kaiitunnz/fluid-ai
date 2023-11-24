@@ -1,7 +1,6 @@
 from abc import abstractmethod
 from typing import Callable, List, Optional, Union
 
-import numpy as np
 import torch
 from torchvision import transforms  # type: ignore
 
@@ -10,8 +9,7 @@ from .labeldroid import utils as labeldroid_utils
 from .labeldroid.args import LabelDroidArgs
 from .labeldroid.models.combined_model import LabelDroid
 from .torch.datasets import get_infer_transform
-from .torch.models import ModelWrapper
-from .torch.utils import load_model
+from ..torchutils import ModelWrapper, load_model
 
 
 class BaseIconLabeller(UiDetectionModule):

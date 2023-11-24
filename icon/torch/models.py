@@ -1,10 +1,12 @@
 from typing import Any, List
 
+from deprecation import deprecated  # type: ignore
 import torchvision.models as models  # type: ignore
 import torch
 import torch.nn as nn
 
 
+@deprecated(details="Use fluid_ai.torchutils.ModelWrapper instead.")
 class ModelWrapper(nn.Module):
     model: nn.Module
     pretrained: bool
