@@ -25,14 +25,18 @@ class BBox(NamedTuple):
         return *self.v0, *self.v1
 
     def scale(self, scale_x: Number, scale_y: Number) -> Self:
-        (x0, y0), (x1, y1) = self.v0, self.v1
+        (x0, y0), (x1, y1) = self
         return self.__class__(
             (x0 * scale_x, y0 * scale_y), (x1 * scale_x, y1 * scale_y)
         )
 
     def map(self, func: Callable[[Number], Number]) -> Self:
-        (x0, y0), (x1, y1) = self.v0, self.v1
+        (x0, y0), (x1, y1) = self
         return self.__class__((func(x0), func(y0)), (func(x1), func(y1)))
+
+    def to_int_flattened(self) -> Tuple[int, int, int, int]:
+        (x0, y0), (x1, y1) = self
+        return int(x0), int(y0), int(x1), int(y1)
 
 
 class UiElement:
@@ -104,8 +108,8 @@ class UiElement:
                 screenshot = loader(self.screenshot)
         else:
             screenshot = self.screenshot
-        x0, y0, x1, y1 = self.bbox.map(int).flatten()
-        return screenshot[y0:y1, x0:x1]  # type: ignore
+        x0, y0, x1, y1 = self.bbox.to_int_flattened()
+        return screenshot[y0:y1, x0:x1]
 
     def __repr__(self) -> str:
         return f"UiElement(name={self.name}, bbox={self.bbox}, info={self.info})"

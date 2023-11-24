@@ -168,16 +168,20 @@ class TesseractOCR(BaseOCR):
             return [
                 pytesseract.image_to_string(
                     cv2.threshold(
-                        cv2.cvtColor(image, cv2.COLOR_RGB2GRAY),
+                        cv2.cvtColor(image, cv2.COLOR_RGB2GRAY),  # type: ignore
                         127,
                         255,
                         cv2.THRESH_OTSU,
-                    )[1]
+                    )[
+                        1
+                    ]  # type: ignore
                 ).strip()
                 for image in images
             ]
         return pytesseract.image_to_string(
             cv2.threshold(
-                cv2.cvtColor(images, cv2.COLOR_RGB2GRAY), 127, 255, cv2.THRESH_OTSU
-            )[1]
+                cv2.cvtColor(images, cv2.COLOR_RGB2GRAY), 127, 255, cv2.THRESH_OTSU  # type: ignore
+            )[
+                1
+            ]  # type: ignore
         ).strip()

@@ -6,7 +6,7 @@ import torch
 from ultralytics import YOLO  # type: ignore
 from ultralytics.engine.results import Results  # type: ignore
 
-from ..base import Array, UiDetectionModule, UiElement
+from ..base import Array, BBox, UiDetectionModule, UiElement
 
 
 class BaseUiDetector(UiDetectionModule):
@@ -49,7 +49,7 @@ class YoloUiDetector(BaseUiDetector):
             yield [
                 UiElement(
                     results.names[int(cls)],
-                    ((x0, y0), (x1, y1)),
+                    BBox((x0, y0), (x1, y1)),
                     screenshot=screenshot,
                 )
                 for (x0, y0, x1, y1), cls in zip(boxes, classes)
