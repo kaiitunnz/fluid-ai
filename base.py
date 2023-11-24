@@ -1,6 +1,6 @@
 from PIL import Image  # type: ignore
 from abc import abstractmethod
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+from typing import Any, Callable, Dict, NamedTuple, Optional, Tuple, Union
 from typing_extensions import Self
 
 import torch
@@ -10,8 +10,29 @@ Array = Union[np.ndarray, torch.Tensor]
 Number = Union[int, float]
 Vertex = Tuple[Number, Number]  # (x, y)
 Box = Tuple[Vertex, Vertex, Vertex, Vertex]  # ((x0, y0), (x1, y1), (x2, y2), (x3, y3))
-BBox = Tuple[Vertex, Vertex]  # ((x0, y0), (x3, y3))
 UiInfo = Dict[str, Any]
+
+
+class BBox(NamedTuple):
+    v0: Vertex
+    v1: Vertex
+
+    @classmethod
+    def new(cls, x0: Number, y0: Number, x1: Number, y1: Number) -> Self:
+        return cls((x0, y0), (x1, y1))
+
+    def flatten(self) -> Tuple[Number, Number, Number, Number]:
+        return *self.v0, *self.v1
+
+    def scale(self, scale_x: Number, scale_y: Number) -> Self:
+        (x0, y0), (x1, y1) = self.v0, self.v1
+        return self.__class__(
+            (x0 * scale_x, y0 * scale_y), (x1 * scale_x, y1 * scale_y)
+        )
+
+    def map(self, func: Callable[[Number], Number]) -> Self:
+        (x0, y0), (x1, y1) = self.v0, self.v1
+        return self.__class__((func(x0), func(y0)), (func(x1), func(y1)))
 
 
 class UiElement:
@@ -65,7 +86,7 @@ class UiElement:
                 x + w,
                 y + h,
             )
-        return cls(name, ((x0, y0), (x1, y1)), screenshot)
+        return cls(name, BBox((x0, y0), (x1, y1)), screenshot)
 
     def size(self) -> Tuple[Number, Number]:
         (x0, y0), (x1, y1) = self.bbox
@@ -83,9 +104,8 @@ class UiElement:
                 screenshot = loader(self.screenshot)
         else:
             screenshot = self.screenshot
-        (x0, y0), (x1, y1) = self.bbox
-        x0, y0, x1, y1 = int(x0), int(y0), int(x1), int(y1)
-        return screenshot[y0:y1, x0:x1]
+        x0, y0, x1, y1 = self.bbox.map(int).flatten()
+        return screenshot[y0:y1, x0:x1]  # type: ignore
 
     def __repr__(self) -> str:
         return f"UiElement(name={self.name}, bbox={self.bbox}, info={self.info})"

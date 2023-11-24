@@ -11,7 +11,7 @@ class TextBox(NamedTuple):
 
     def bbox(self) -> BBox:
         xs, ys = zip(*self.box)
-        return (min(xs), min(ys)), (max(xs), max(ys))
+        return BBox((min(xs), min(ys)), (max(xs), max(ys)))
 
     def is_on_same_line(self, other: Self) -> bool:
         (_, y10), (_, y11) = self.bbox()
