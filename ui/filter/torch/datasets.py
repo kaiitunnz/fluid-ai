@@ -4,8 +4,8 @@ from PIL import Image  # type: ignore
 from typing import Callable, List, NamedTuple, Optional, Tuple
 from typing_extensions import Self
 
-import numpy as np
 import torch
+import yaml  # type: ignore
 from cachetools import LRUCache  # type: ignore
 from torch.utils.data import DataLoader, Dataset, Sampler
 from torchvision import transforms  # type: ignore
@@ -46,7 +46,7 @@ class RicoValidDataset(DatasetWrapper):
 
 class RicoValidElement(RicoValidDataset):
     root: str
-    samples_paths: List[Tuple[str, str]]
+    sample_paths: List[Tuple[str, str]]
     transform: Callable
 
     def __init__(self, root: str, training: bool, initial_transform: Callable):
@@ -190,6 +190,40 @@ class RicoValidBoundary(RicoValidDataset):
         test = cls(
             screenshot_dir,
             os.path.join(data_dir, "test.csv"),
+            False,
+            initial_transform,
+            cache_size,
+        )
+
+        return train, val, test
+
+    @classmethod
+    def from_config(
+        cls,
+        config: str,
+        initial_transform: Callable,
+        cache_size: int = 1024,
+    ) -> Tuple[Self, Self, Self]:
+        with open(config, "r") as f:
+            cfg = yaml.safe_load(f.read())
+        screenshot_dir = cfg["images"]
+        train = cls(
+            screenshot_dir,
+            cfg["train"],
+            True,
+            initial_transform,
+            cache_size,
+        )
+        val = cls(
+            screenshot_dir,
+            cfg["val"],
+            False,
+            initial_transform,
+            cache_size,
+        )
+        test = cls(
+            screenshot_dir,
+            cfg["test"],
             False,
             initial_transform,
             cache_size,

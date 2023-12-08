@@ -1,5 +1,5 @@
 import os
-from typing import List
+from typing import Any, Dict, List
 
 import matplotlib.pyplot as plt  # type: ignore
 import torch
@@ -20,6 +20,7 @@ def save_model(
     """
     for params in model.parameters():
         params.requires_grad = False
+    device = model.device()
     torch.save(
         {
             "epoch": epoch,
@@ -29,6 +30,9 @@ def save_model(
         },
         path,
     )
+    for params in model.parameters():
+        params.requires_grad = True
+    model.to(device)
 
 
 def load_model(path: str) -> ModelWrapper:
@@ -37,19 +41,20 @@ def load_model(path: str) -> ModelWrapper:
 
 def save_plots(
     save_dir: str,
-    train_acc: List[float],
-    valid_acc: List[float],
     train_loss: List[float],
     valid_loss: List[float],
+    train_metrics: Dict[str, List[Any]],
+    val_metrics: Dict[str, List[Any]],
 ):
-    # accuracy plots
-    plt.figure(figsize=(10, 7))
-    plt.plot(train_acc, color="green", linestyle="-", label="train accuracy")
-    plt.plot(valid_acc, color="blue", linestyle="-", label="validataion accuracy")
-    plt.xlabel("Epochs")
-    plt.ylabel("Accuracy")
-    plt.legend()
-    plt.savefig(os.path.join(save_dir, "accuracy_hist.png"))
+    # metric plots
+    for metric, hist in train_metrics.items():
+        plt.figure(figsize=(10, 7))
+        plt.plot(hist, color="green", linestyle="-", label=metric)
+        plt.plot(hist, color="blue", linestyle="-", label=metric)
+        plt.xlabel("Epochs")
+        plt.ylabel(metric)
+        plt.legend()
+        plt.savefig(os.path.join(save_dir, f"{metric}_hist.png"))
 
     # loss plots
     plt.figure(figsize=(10, 7))

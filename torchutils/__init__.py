@@ -1,3 +1,11 @@
+from .metric import (
+    BinaryAccuracy,
+    BinaryF1Score,
+    BinaryPrecision,
+    BinaryRecall,
+    Metric,
+    MetricList,
+)
 from .training import (
     EarlyStopper,
     EvalConfig,

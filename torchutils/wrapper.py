@@ -1,4 +1,5 @@
-from typing import Any, Callable, List, Optional
+from abc import abstractmethod
+from typing import Any, Callable, List, Optional, Sequence
 
 import torch
 import torch.nn as nn
@@ -32,6 +33,14 @@ class ModelWrapper(nn.Module):
 
     def forward(self, x: Any) -> Any:
         return self.model(x.to(self.device()))
+
+    @abstractmethod
+    def get_pred_idx(self, out: torch.Tensor) -> torch.Tensor:
+        raise NotImplementedError()
+
+    def get_preds(self, out: Any) -> List[Any]:
+        pred_idx = self.get_pred_idx(out).to(torch.int).tolist()
+        return [self.classes[i] for i in pred_idx]
 
 
 class DatasetWrapper(Dataset):

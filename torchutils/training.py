@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Dict, List, NamedTuple, Optional, Tuple, Union
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
 
 import pandas as pd  # type: ignore
 import torch
@@ -9,6 +9,7 @@ from sklearn.metrics import confusion_matrix  # type: ignore
 from torch.utils.data import DataLoader, Dataset, Sampler
 from tqdm import tqdm  # type: ignore
 
+from .metric import MetricList
 from .utils import load_model, save_model, save_plots
 from .wrapper import ModelWrapper
 
@@ -79,6 +80,8 @@ class EarlyStopper:
 class TrainConfig(NamedTuple):
     optimizer: torch.optim.Optimizer
     criterion: nn.Module
+    train_metrics: MetricList
+    val_metrics: MetricList
     scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None
     num_epochs: int = 50
     early_stopper: Optional[EarlyStopper] = None
@@ -93,6 +96,7 @@ class TrainConfig(NamedTuple):
 class EvalConfig(NamedTuple):
     results_dir: str
     classes: Optional[List[str]]
+    metrics: MetricList
     device: torch.device = torch.device("cpu")
     overwrite: bool = False
     verbose: bool = True
@@ -126,16 +130,17 @@ def _get_plot_path(train_config: TrainConfig) -> Optional[str]:
 
 
 def train_one_epoch(
-    model: nn.Module,
+    model: ModelWrapper,
     train_loader: DataLoader,
     optimizer: torch.optim.Optimizer,
     criterion: nn.Module,
+    metrics: MetricList,
     device: torch.device,
     verbose: bool,
-) -> Tuple[float, float]:
+) -> float:
     model.train()
     train_running_loss = 0.0
-    train_running_correct = 0
+    metrics.reset()
     counter = 0
     for image, labels in tqdm(train_loader, disable=not verbose):
         counter += 1
@@ -143,29 +148,29 @@ def train_one_epoch(
         labels = labels.to(device)
         with torch.set_grad_enabled(True):
             optimizer.zero_grad()
-            outputs = model(image)
-            loss = criterion(outputs, labels)
+            outputs = model(image).squeeze(dim=1)
+            loss = criterion(outputs, labels.to(torch.float))
             train_running_loss += loss.item()
-            _, preds = torch.max(outputs.data, 1)
-            train_running_correct += (preds == labels).sum().item()
+            preds = model.get_pred_idx(outputs)
+            metrics.update(preds, labels)
             loss.backward()
             optimizer.step()
 
     epoch_loss = train_running_loss / counter
-    epoch_acc = 100.0 * (train_running_correct / len(train_loader.dataset))  # type: ignore
-    return epoch_loss, epoch_acc
+    return epoch_loss
 
 
 def validate(
-    model: nn.Module,
+    model: ModelWrapper,
     val_loader: DataLoader,
     criterion: nn.Module,
+    metrics: MetricList,
     device: torch.device,
     verbose: bool,
-) -> Tuple[float, float]:
+) -> float:
     model.eval()
     valid_running_loss = 0.0
-    valid_running_correct = 0
+    metrics.reset()
     counter = 0
     with torch.no_grad():
         for _, (image, labels) in enumerate(tqdm(val_loader, disable=not verbose)):
@@ -173,16 +178,14 @@ def validate(
             image = image.to(device)
             labels = labels.to(device)
             with torch.no_grad():
-                outputs = model(image)
-                loss = criterion(outputs, labels)
+                outputs = model(image).squeeze(dim=1)
+                loss = criterion(outputs, labels.to(torch.float))
                 valid_running_loss += loss.item()
-                _, preds = torch.max(outputs.data, 1)
-                valid_running_correct += (preds == labels).sum().item()
+                preds = model.get_pred_idx(outputs)
+                metrics.update(preds, labels)
 
-    # Loss and accuracy for the complete epoch.
     epoch_loss = valid_running_loss / counter
-    epoch_acc = 100.0 * (valid_running_correct / len(val_loader.dataset))  # type: ignore
-    return epoch_loss, epoch_acc
+    return epoch_loss
 
 
 def train(
@@ -197,6 +200,8 @@ def train(
     scheduler = train_config.scheduler
     early_stopper = train_config.early_stopper
     num_epochs = train_config.num_epochs
+    train_metrics = train_config.train_metrics
+    val_metrics = train_config.val_metrics
     device = train_config.device
     save_period = train_config.save_period
     checkpoint_path = _get_checkpoint_path(train_config)
@@ -211,16 +216,21 @@ def train(
     print(f"{total_trainable_params:,} training parameters.")
 
     train_loss, val_loss = [], []
-    train_acc, val_acc = [], []
-    best_val_acc: float = 0.0
+    best_val_metric = None
 
     for epoch in range(num_epochs):
         print(f"Epoch {epoch+1} of {num_epochs}")
-        train_epoch_loss, train_epoch_acc = train_one_epoch(
-            model, train_loader, optimizer, criterion, device, train_config.verbose
+        train_epoch_loss = train_one_epoch(
+            model,
+            train_loader,
+            optimizer,
+            criterion,
+            train_metrics,
+            device,
+            train_config.verbose,
         )
-        val_epoch_loss, val_epoch_acc = validate(
-            model, val_loader, criterion, device, train_config.verbose
+        val_epoch_loss = validate(
+            model, val_loader, criterion, val_metrics, device, train_config.verbose
         )
 
         if scheduler is not None:
@@ -231,18 +241,22 @@ def train(
 
         train_loss.append(train_epoch_loss)
         val_loss.append(val_epoch_loss)
-        train_acc.append(train_epoch_acc)
-        val_acc.append(val_epoch_acc)
+        train_metrics_values = train_metrics.commit()
+        val_metrics_values = val_metrics.commit()
+        val_epoch_metric = val_metrics.main_value()
         print(
-            f"Training loss: {train_epoch_loss:.3f}, training acc: {train_epoch_acc:.3f}"
+            f"Training loss: {train_epoch_loss:.3f}, training metrics: {train_metrics_values}"
         )
         print(
-            f"Validation loss: {val_epoch_loss:.3f}, validation acc: {val_epoch_acc:.3f}"
+            f"Validation loss: {val_epoch_loss:.3f}, validation metrics: {val_metrics_values}"
         )
         print("-" * 10)
 
         if checkpoint_path is not None:
-            if val_epoch_acc >= best_val_acc and checkpoint_path is not None:
+            if (
+                val_metrics.is_current_better(best_val_metric)
+                and checkpoint_path is not None
+            ):
                 save_model(
                     os.path.join(checkpoint_path, "best.pt"),
                     epoch,
@@ -250,7 +264,7 @@ def train(
                     optimizer,
                     criterion,
                 )
-                best_val_acc = val_epoch_acc
+                best_val_metric = val_epoch_metric
             if epoch % save_period == 0:
                 save_model(
                     os.path.join(checkpoint_path, f"epoch{epoch + 1}.pt"),
@@ -260,17 +274,21 @@ def train(
                     criterion,
                 )
 
-        if early_stopper is not None and early_stopper.stop(-val_epoch_acc):
+        if early_stopper is not None and early_stopper.stop(-val_epoch_metric):
             print("-" * 10)
             print("No improvement on the validation accuracy. Training stopped.")
             break
 
     if plot_path is not None:
-        save_plots(plot_path, train_acc, val_acc, train_loss, val_loss)
+        train_metrics_hist = train_metrics.histories()
+        val_metrics_hist = val_metrics.histories()
+        save_plots(
+            plot_path, train_loss, val_loss, train_metrics_hist, val_metrics_hist
+        )
         with open(os.path.join(plot_path, "train_acc_hist.json"), "w") as f:
-            json.dump(train_acc, f)
+            json.dump(train_metrics_hist, f)
         with open(os.path.join(plot_path, "val_acc_hist.json"), "w") as f:
-            json.dump(val_acc, f)
+            json.dump(val_metrics_hist, f)
         with open(os.path.join(plot_path, "train_loss_hist.json"), "w") as f:
             json.dump(train_loss, f)
         with open(os.path.join(plot_path, "val_loss_hist.json"), "w") as f:
@@ -293,12 +311,13 @@ def eval(
     _init_eval(eval_config)
 
     results_dir = eval_config.results_dir
+    metrics = eval_config.metrics
     classes = eval_config.classes
     device = eval_config.device
     model.to(device)
 
     all_preds, all_targets = [], []
-    valid_running_correct = 0
+    metrics.reset()
     counter = 0
     with torch.no_grad():
         for _, (image, labels) in enumerate(
@@ -308,18 +327,22 @@ def eval(
             image = image.to(device)
             labels = labels.to(device)
             with torch.no_grad():
-                outputs = model(image)
-                _, preds = torch.max(outputs.data, 1)
-                valid_running_correct += (preds == labels).sum().item()
+                outputs = model(image).squeeze(dim=1)
+                preds = model.get_pred_idx(outputs)
+                metrics.update(preds, labels)
                 all_preds.extend(preds.tolist())
                 all_targets.extend(labels.tolist())
 
-    print("Overall accuracy:", 100 * (valid_running_correct / len(test_loader.dataset)))  # type: ignore
-    conf_mat = confusion_matrix(all_targets, all_preds, normalize=None)
+    labels = None if eval_config.classes is None else range(len(eval_config.classes))
+    for metric, value in metrics.values().items():
+        print(f"{metric}: {value}")
+    conf_mat = confusion_matrix(all_targets, all_preds, labels=labels, normalize=None)
     pd.DataFrame(conf_mat, columns=classes, index=classes).to_csv(
         os.path.join(results_dir, "confusion_matrix.csv")
     )
-    normalized_conf_mat = confusion_matrix(all_targets, all_preds, normalize="true")
+    normalized_conf_mat = confusion_matrix(
+        all_targets, all_preds, labels=labels, normalize="true"
+    )
     pd.DataFrame(normalized_conf_mat, columns=classes, index=classes).to_csv(
         os.path.join(results_dir, "normalized_confusion_matrix.csv")
     )

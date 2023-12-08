@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any, Callable, List, Optional
 
 import torchvision.models as models  # type: ignore
 import torch
@@ -7,8 +7,31 @@ import torch.nn as nn
 from ....torchutils import ModelWrapper
 
 
+class FilterModelWrapper(ModelWrapper):
+    threshold: float
+
+    def __init__(
+        self,
+        model: nn.Module,
+        pretrained: bool,
+        classes: List[Any],
+        transform: Optional[Callable] = None,
+        threshold: float = 0.5,
+    ):
+        super().__init__(model, pretrained, classes, transform)
+        self.threshold = threshold
+
+    def get_pred_idx(self, out: torch.Tensor) -> torch.Tensor:
+        result = torch.zeros_like(out)
+        result[out > self.threshold] = 1
+        return result
+
+
 def build_efficientnet_v2_s(
-    classes: List[Any], masked: bool = False, pretrained: bool = True
+    classes: List[Any],
+    masked: bool = False,
+    pretrained: bool = True,
+    imgsize: Optional[int] = None,
 ) -> ModelWrapper:
     if pretrained:
         print("[INFO]: Loading pre-trained weights")
@@ -35,18 +58,22 @@ def build_efficientnet_v2_s(
         model.features[0][0] = new_first_conv2d
 
     in_features = model.classifier[1].in_features
-    model.classifier[1] = nn.Linear(in_features=in_features, out_features=len(classes))  # type: ignore
+    model.classifier[1] = nn.Linear(in_features=in_features, out_features=1)  # type: ignore
+    if imgsize is None:
+        transforms = models.EfficientNet_V2_S_Weights.DEFAULT.transforms()
+    else:
+        transforms = models.EfficientNet_V2_S_Weights.DEFAULT.transforms(
+            resize_size=imgsize, crop_size=imgsize
+        )
 
-    return ModelWrapper(
-        model,
-        pretrained,
-        classes,
-        models.EfficientNet_V2_S_Weights.DEFAULT.transforms(),
-    )
+    return FilterModelWrapper(model, pretrained, classes, transforms)
 
 
 def build_efficientnet_v2_m(
-    classes: List[Any], masked: bool = False, pretrained: bool = True
+    classes: List[Any],
+    masked: bool = False,
+    pretrained: bool = True,
+    imgsize: Optional[int] = None,
 ) -> ModelWrapper:
     if pretrained:
         print("[INFO]: Loading pre-trained weights")
@@ -73,17 +100,27 @@ def build_efficientnet_v2_m(
         model.features[0][0] = new_first_conv2d
 
     in_features = model.classifier[1].in_features
-    model.classifier[1] = nn.Linear(in_features=in_features, out_features=len(classes))  # type: ignore
+    model.classifier[1] = nn.Linear(in_features=in_features, out_features=1)  # type: ignore
+    if imgsize is None:
+        transforms = models.EfficientNet_V2_M_Weights.DEFAULT.transforms()
+    else:
+        transforms = models.EfficientNet_V2_M_Weights.DEFAULT.transforms(
+            resize_size=imgsize, crop_size=imgsize
+        )
 
-    return ModelWrapper(
+    return FilterModelWrapper(
         model,
         pretrained,
         classes,
-        models.EfficientNet_V2_M_Weights.DEFAULT.transforms(),
+        transforms,
     )
 
 
-def build_resnet_50(classes: List[Any], pretrained: bool = True) -> ModelWrapper:
+def build_resnet_50(
+    classes: List[Any],
+    pretrained: bool = True,
+    imgsize: Optional[int] = None,
+) -> ModelWrapper:
     if pretrained:
         print("[INFO]: Loading pre-trained weights")
         model = models.resnet50(models.ResNet50_Weights.DEFAULT)
@@ -93,7 +130,11 @@ def build_resnet_50(classes: List[Any], pretrained: bool = True) -> ModelWrapper
     for params in model.parameters():
         params.requires_grad = True
     in_features = model.fc.in_features
-    model.fc = nn.Linear(in_features=in_features, out_features=len(classes))
-    return ModelWrapper(
-        model, pretrained, classes, models.ResNet50_Weights.DEFAULT.transforms()
-    )
+    model.fc = nn.Linear(in_features=in_features, out_features=1)
+    if imgsize is None:
+        transforms = models.ResNet50_Weights.DEFAULT.transforms()
+    else:
+        transforms = models.ResNet50_Weights.DEFAULT.transforms(
+            resize_size=imgsize, crop_size=imgsize
+        )
+    return FilterModelWrapper(model, pretrained, classes, transforms)
