@@ -16,7 +16,7 @@ class FilterModelWrapper(ModelWrapper):
         pretrained: bool,
         classes: List[Any],
         transform: Optional[Callable] = None,
-        threshold: float = 0.5,
+        threshold: float = 0.0,
     ):
         super().__init__(model, pretrained, classes, transform)
         self.threshold = threshold
@@ -108,12 +108,7 @@ def build_efficientnet_v2_m(
             resize_size=imgsize, crop_size=imgsize
         )
 
-    return FilterModelWrapper(
-        model,
-        pretrained,
-        classes,
-        transforms,
-    )
+    return FilterModelWrapper(model, pretrained, classes, transforms)
 
 
 def build_resnet_50(
