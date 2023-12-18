@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Iterator
 
 import matplotlib.pyplot as plt  # type: ignore
 import torch
@@ -64,3 +64,27 @@ def save_plots(
     plt.ylabel("Loss")
     plt.legend()
     plt.savefig(os.path.join(save_dir, "loss_hist.png"))
+
+
+class BatchLoader:
+    batch_size: int
+    data: List[torch.Tensor]
+    i: int = 0
+    length: int
+
+    def __init__(self, batch_size: int, data: List[torch.Tensor]):
+        self.batch_size = batch_size
+        self.data = data
+        self.length = len(self.data)
+
+    def __iter__(self) -> Iterator[torch.Tensor]:
+        if self.batch_size <= 0:
+            return iter([torch.cat(self.data, dim=0)])
+        return self
+
+    def __next__(self) -> torch.Tensor:
+        if self.i >= self.length:
+            raise StopIteration()
+        batch = self.data[self.i : self.i + self.batch_size]
+        self.i += self.batch_size
+        return torch.cat(batch, dim=0)

@@ -97,6 +97,10 @@ class UiElement:
         return abs(x0 - x1), abs(y0 - y1)
 
     def get_cropped_image(self, loader: Optional[Callable[..., Array]] = None) -> Array:
+        x0, y0, x1, y1 = self.bbox.to_int_flattened()
+        return self.get_screenshot(loader)[y0:y1, x0:x1]
+
+    def get_screenshot(self, loader: Optional[Callable[..., Array]] = None) -> Array:
         if self.screenshot is None:
             if loader is None:
                 raise ValueError("No loader provided.")
@@ -108,8 +112,7 @@ class UiElement:
                 screenshot = loader(self.screenshot)
         else:
             screenshot = self.screenshot
-        x0, y0, x1, y1 = self.bbox.to_int_flattened()
-        return screenshot[y0:y1, x0:x1]
+        return screenshot
 
     def __repr__(self) -> str:
         return f"UiElement(name={self.name}, bbox={self.bbox}, info={self.info})"
