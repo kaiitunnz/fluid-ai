@@ -9,6 +9,7 @@ from .base import Array, UiElement
 from .icon import BaseIconLabeller
 from .ocr import BaseOCR
 from .ui.detection import BaseUiDetector
+from .ui.filter import BaseUiFilter
 from .ui.matching import BaseUiMatching
 
 
@@ -75,6 +76,7 @@ class TestUiDetectionPipeline:
 
 class UiDetectionPipeline:
     detector: BaseUiDetector
+    filter: BaseUiFilter
     matcher: BaseUiMatching
     text_recognizer: BaseOCR
     textual_elements: List[str]
@@ -84,6 +86,7 @@ class UiDetectionPipeline:
     def __init__(
         self,
         detector: BaseUiDetector,
+        filter: BaseUiFilter,
         matcher: BaseUiMatching,
         text_recognizer: BaseOCR,
         textual_elements: List[str],
@@ -91,6 +94,7 @@ class UiDetectionPipeline:
         icon_elements: List[str],
     ):
         self.detector = detector
+        self.filter = filter
         self.matcher = matcher
         self.text_recognizer = text_recognizer
         self.textual_elements = textual_elements
@@ -105,7 +109,8 @@ class UiDetectionPipeline:
         if elements is None:
             elements = itertools.repeat([])
         for detected, base in zip(self.detector.detect(list(screenshots)), elements):
-            matched = self.matcher.match(base, detected)
+            filtered = self.filter.filter(base)
+            matched = self.matcher.match(filtered, detected)
             icons = []
             for e in matched:
                 if e.name in self.icon_elements:
@@ -128,6 +133,7 @@ class UiDetectionPipeline:
             "num_detected_textual",
             "num_detected_icons",
             "ui_detection_time (ms)",
+            "invalid_ui_detection_time (ms)",
             "matching_time (ms)",
             "text_recognition_time (ms)",
             "icon_labelling_time (ms)",
@@ -143,8 +149,12 @@ class UiDetectionPipeline:
             ui_detection_time = time.time() - start  # 4
             num_detected = len(detected)  # 0
             start = time.time()
-            matched = self.matcher.match(base, detected)
-            matching_time = time.time() - start  # 5
+            filtered = self.filter.filter(base)
+            filter_time = time.time() - start  # 5
+            num_filtered = len(filtered)
+            start = time.time()
+            matched = self.matcher.match(filtered, detected)
+            matching_time = time.time() - start  # 6
             num_matched = len(matched)  # 1
             textual = []
             icons = []
@@ -157,17 +167,19 @@ class UiDetectionPipeline:
             num_matched_icons = len(icons)  # 3
             start = time.time()
             self.text_recognizer.process(textual)
-            text_recognition_time = time.time() - start  # 6
+            text_recognition_time = time.time() - start  # 7
             start = time.time()
             self.icon_labeller.process(icons)
-            icon_labelling_time = time.time() - start  # 7
+            icon_labelling_time = time.time() - start  # 8
             results.append(
                 [
                     num_detected,
+                    num_filtered,
                     num_matched,
                     num_matched_textual,
                     num_matched_icons,
                     ui_detection_time * 1000,
+                    filter_time * 1000,
                     matching_time * 1000,
                     text_recognition_time * 1000,
                     icon_labelling_time * 1000,
