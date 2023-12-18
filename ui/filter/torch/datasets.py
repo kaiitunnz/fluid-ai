@@ -159,8 +159,13 @@ class RicoValidBoundary(RicoValidDataset):
         return self.final_transform(transformed), label
 
     @staticmethod
-    def _get_mask(image: torch.Tensor, bbox: BBox) -> torch.Tensor:
-        x0, y0, x1, y1 = bbox.to_int_flattened()
+    def _get_mask(
+        image: torch.Tensor, bbox: BBox, normalized: bool = True
+    ) -> torch.Tensor:
+        if normalized:
+            x0, y0, x1, y1 = bbox.scale(*image.size()[1:]).to_int_flattened()
+        else:
+            x0, y0, x1, y1 = bbox.to_int_flattened()
         mask = torch.zeros((1, *image.size()[1:]))
         mask[0, y0:y1, x0:x1] = 1.0
         return mask

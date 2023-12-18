@@ -1,10 +1,17 @@
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List, Optional, Tuple, Union
 
 import torchvision.models as models  # type: ignore
 import torch
 import torch.nn as nn
+from torchvision import transforms
+from torchvision.transforms import functional as F  # type: ignore
 
 from ....torchutils import ModelWrapper
+
+
+DEFAULT_EFFICIENTNETV2_S_IMGSIZE = 384
+DEFAULT_EFFICIENTNETV2_M_IMGSIZE = 480
+DEFAULT_RESNET50_IMGSIZE = 224
 
 
 class FilterModelWrapper(ModelWrapper):
@@ -27,11 +34,48 @@ class FilterModelWrapper(ModelWrapper):
         return result
 
 
+class UiFilterTransform(nn.Module):
+    def __init__(
+        self,
+        *,
+        resize_size: Union[Tuple[int, int], int] = 256,
+        mean: Tuple[float, ...] = (0.485, 0.456, 0.406),
+        std: Tuple[float, ...] = (0.229, 0.224, 0.225),
+        interpolation: transforms.InterpolationMode = transforms.InterpolationMode.BILINEAR,
+    ) -> None:
+        super().__init__()
+        self.resize_size = (
+            list(resize_size)
+            if isinstance(resize_size, tuple)
+            else [resize_size, resize_size]
+        )
+        self.mean = list(mean)
+        self.std = list(std)
+        self.interpolation = interpolation
+
+    def forward(self, img: torch.Tensor) -> torch.Tensor:
+        img = F.resize(img, self.resize_size, interpolation=self.interpolation)
+        if not isinstance(img, torch.Tensor):
+            img = F.pil_to_tensor(img)
+        img = F.convert_image_dtype(img, torch.float)
+        img = F.normalize(img, mean=self.mean, std=self.std)
+        return img
+
+    def __repr__(self) -> str:
+        format_string = self.__class__.__name__ + "("
+        format_string += f"\n    resize_size={self.resize_size}"
+        format_string += f"\n    mean={self.mean}"
+        format_string += f"\n    std={self.std}"
+        format_string += f"\n    interpolation={self.interpolation}"
+        format_string += "\n)"
+        return format_string
+
+
 def build_efficientnet_v2_s(
     classes: List[Any],
     masked: bool = False,
     pretrained: bool = True,
-    imgsize: Optional[int] = None,
+    imgsize: int = DEFAULT_EFFICIENTNETV2_S_IMGSIZE,
 ) -> ModelWrapper:
     if pretrained:
         print("[INFO]: Loading pre-trained weights")
@@ -59,13 +103,7 @@ def build_efficientnet_v2_s(
 
     in_features = model.classifier[1].in_features
     model.classifier[1] = nn.Linear(in_features=in_features, out_features=1)  # type: ignore
-    if imgsize is None:
-        transforms = models.EfficientNet_V2_S_Weights.DEFAULT.transforms()
-    else:
-        transforms = models.EfficientNet_V2_S_Weights.DEFAULT.transforms(
-            resize_size=imgsize, crop_size=imgsize
-        )
-
+    transforms = UiFilterTransform(resize_size=imgsize)
     return FilterModelWrapper(model, pretrained, classes, transforms)
 
 
@@ -73,7 +111,7 @@ def build_efficientnet_v2_m(
     classes: List[Any],
     masked: bool = False,
     pretrained: bool = True,
-    imgsize: Optional[int] = None,
+    imgsize: int = DEFAULT_EFFICIENTNETV2_M_IMGSIZE,
 ) -> ModelWrapper:
     if pretrained:
         print("[INFO]: Loading pre-trained weights")
@@ -101,20 +139,14 @@ def build_efficientnet_v2_m(
 
     in_features = model.classifier[1].in_features
     model.classifier[1] = nn.Linear(in_features=in_features, out_features=1)  # type: ignore
-    if imgsize is None:
-        transforms = models.EfficientNet_V2_M_Weights.DEFAULT.transforms()
-    else:
-        transforms = models.EfficientNet_V2_M_Weights.DEFAULT.transforms(
-            resize_size=imgsize, crop_size=imgsize
-        )
-
+    transforms = UiFilterTransform(resize_size=imgsize)
     return FilterModelWrapper(model, pretrained, classes, transforms)
 
 
 def build_resnet_50(
     classes: List[Any],
     pretrained: bool = True,
-    imgsize: Optional[int] = None,
+    imgsize: int = DEFAULT_RESNET50_IMGSIZE,
 ) -> ModelWrapper:
     if pretrained:
         print("[INFO]: Loading pre-trained weights")
@@ -126,10 +158,5 @@ def build_resnet_50(
         params.requires_grad = True
     in_features = model.fc.in_features
     model.fc = nn.Linear(in_features=in_features, out_features=1)
-    if imgsize is None:
-        transforms = models.ResNet50_Weights.DEFAULT.transforms()
-    else:
-        transforms = models.ResNet50_Weights.DEFAULT.transforms(
-            resize_size=imgsize, crop_size=imgsize
-        )
+    transforms = UiFilterTransform(resize_size=imgsize)
     return FilterModelWrapper(model, pretrained, classes, transforms)
