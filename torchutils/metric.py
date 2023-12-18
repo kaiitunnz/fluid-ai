@@ -137,12 +137,29 @@ class BinaryF1Score(Metric):
     _tp: int = 0
     _fp: int = 0
     _fn: int = 0
+    _true: float
+
+    def __init__(self, name: str, keephist: bool = True, inverted: bool = False):
+        super().__init__(name, keephist)
+        self._true = 0 if inverted else 1
 
     def compute(self, preds: torch.Tensor, labels: torch.Tensor) -> float:
         assert preds.size() == labels.size()
-        self._tp += int(torch.logical_and((preds == 1), (labels == 1)).sum().item())
-        self._fp += int(torch.logical_and((preds == 1), (labels != 1)).sum().item())
-        self._fn += int(torch.logical_and((preds != 1), (labels == 1)).sum().item())
+        self._tp += int(
+            torch.logical_and((preds == self._true), (labels == self._true))
+            .sum()
+            .item()
+        )
+        self._fp += int(
+            torch.logical_and((preds == self._true), (labels != self._true))
+            .sum()
+            .item()
+        )
+        self._fn += int(
+            torch.logical_and((preds != self._true), (labels == self._true))
+            .sum()
+            .item()
+        )
         denom = self._tp + ((self._fp + self._fn) / 2)
         if denom == 0:
             return 0
@@ -158,11 +175,24 @@ class BinaryF1Score(Metric):
 class BinaryPrecision(Metric):
     _tp: int = 0
     _fp: int = 0
+    _true: float
+
+    def __init__(self, name: str, keephist: bool = True, inverted: bool = False):
+        super().__init__(name, keephist)
+        self._true = 0 if inverted else 1
 
     def compute(self, preds: torch.Tensor, labels: torch.Tensor) -> float:
         assert preds.size() == labels.size()
-        self._tp += int(torch.logical_and((preds == 1), (labels == 1)).sum().item())
-        self._fp += int(torch.logical_and((preds == 1), (labels != 1)).sum().item())
+        self._tp += int(
+            torch.logical_and((preds == self._true), (labels == self._true))
+            .sum()
+            .item()
+        )
+        self._fp += int(
+            torch.logical_and((preds == self._true), (labels != self._true))
+            .sum()
+            .item()
+        )
         denom = self._tp + self._fp
         if denom == 0:
             return 0
@@ -178,11 +208,24 @@ class BinaryPrecision(Metric):
 class BinaryRecall(Metric):
     _tp: int = 0
     _fn: int = 0
+    _true: float
+
+    def __init__(self, name: str, keephist: bool = True, inverted: bool = False):
+        super().__init__(name, keephist)
+        self._true = 0 if inverted else 1
 
     def compute(self, preds: torch.Tensor, labels: torch.Tensor) -> float:
         assert preds.size() == labels.size()
-        self._tp += int(torch.logical_and((preds == 1), (labels == 1)).sum().item())
-        self._fn += int(torch.logical_and((preds != 1), (labels == 1)).sum().item())
+        self._tp += int(
+            torch.logical_and((preds == self._true), (labels == self._true))
+            .sum()
+            .item()
+        )
+        self._fn += int(
+            torch.logical_and((preds != self._true), (labels == self._true))
+            .sum()
+            .item()
+        )
         denom = self._tp + self._fn
         if denom == 0:
             return 0
