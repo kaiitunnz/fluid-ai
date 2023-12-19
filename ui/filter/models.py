@@ -13,8 +13,21 @@ class BaseUiFilter(UiDetectionModule):
     def filter(self, elements: List[UiElement]) -> List[UiElement]:
         raise NotImplementedError()
 
+    def prefilter(self, elements: List[UiElement]) -> List[UiElement]:
+        # Check bounding boxes
+        elements = [
+            element for element in elements if BaseUiFilter.is_valid_bbox(element)
+        ]
+
+        return elements
+
     def __call__(self, elements: List[UiElement]) -> List[UiElement]:
-        return self.filter(elements)
+        return self.filter(self.prefilter(elements))
+
+    @staticmethod
+    def is_valid_bbox(element: UiElement) -> bool:
+        w, h = element.size()
+        return w > 0 and h > 0
 
 
 class DummyUiFilter(BaseUiFilter):
