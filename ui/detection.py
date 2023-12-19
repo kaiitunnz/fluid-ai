@@ -1,12 +1,12 @@
 from abc import abstractmethod
-from typing import Iterable, Iterator, List
+from typing import Iterable, Iterator, List, Tuple
 
 import numpy as np
 import torch
 from ultralytics import YOLO  # type: ignore
 from ultralytics.engine.results import Results  # type: ignore
 
-from ..base import Array, BBox, UiDetectionModule, UiElement
+from ..base import Array, BBox, Number, UiDetectionModule, UiElement
 
 
 class BaseUiDetector(UiDetectionModule):
@@ -20,6 +20,16 @@ class BaseUiDetector(UiDetectionModule):
         self, screenshots: Iterable[Array], save_img: bool = True
     ) -> Iterator[List[UiElement]]:
         return self.detect(screenshots, save_img)
+
+
+class DummyUiDetector(BaseUiDetector):
+    @abstractmethod
+    def detect(
+        self, screenshots: Iterable[Array], save_img: bool = True
+    ) -> Iterator[List[UiElement]]:
+        for screenshot in screenshots:
+            shape: Tuple[Number, Number] = tuple(screenshot.shape[:2])  # type: ignore
+            yield [UiElement("SCREEN", BBox((0, 0), shape), screenshot)]
 
 
 class YoloUiDetector(BaseUiDetector):

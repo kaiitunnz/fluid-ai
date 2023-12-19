@@ -32,6 +32,16 @@ class BaseUiMatching(UiDetectionModule):
         return self.match(base, other)
 
 
+class DummyUiMatching(BaseUiMatching):
+    def match(self, base: List[UiElement], other: List[UiElement]) -> List[UiElement]:
+        return base + other
+
+    def match_i(
+        self, _: int, base: List[UiElement], other: List[UiElement]
+    ) -> List[UiElement]:
+        return base + other
+
+
 class IouUiMatching(BaseUiMatching):
     threshold: float
 
