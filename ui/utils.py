@@ -27,4 +27,4 @@ def compute_iou(bbox1: BBox, bbox2: BBox) -> float:
 
 
 def cosine_similarity(u: np.ndarray, v: np.ndarray) -> float:
-    return np.dot(u, v) / (np.sqrt(np.sum(u**2) * np.sum(v**2)))
+    return np.dot(u, v) / (np.sqrt(np.sum(u**2) * np.sum(v**2)))  # type: ignore
