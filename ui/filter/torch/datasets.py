@@ -10,13 +10,13 @@ from cachetools import LRUCache  # type: ignore
 from torch.utils.data import DataLoader, Dataset, Sampler
 from torchvision import transforms  # type: ignore
 
-from ....base import BBox
+from ....base import NormalizedBBox, array_get_size
 from ....torchutils.wrapper import DatasetWrapper
 
 
 class _BoundaryEntry(NamedTuple):
     screenshot_id: str
-    bbox: BBox
+    bbox: NormalizedBBox
     label: int
 
 
@@ -133,7 +133,11 @@ class RicoValidBoundary(RicoValidDataset):
                 screenshot_id, *str_bbox, label = row
                 x0, y0, x1, y1 = map(float, str_bbox)
                 self.sample_entries.append(
-                    _BoundaryEntry(screenshot_id, BBox((x0, y0), (x1, y1)), int(label))
+                    _BoundaryEntry(
+                        screenshot_id,
+                        NormalizedBBox.new((x0, y0), (x1, y1)),
+                        int(label),
+                    )
                 )
 
         self.screenshot_cache = LRUCache(cache_size)
@@ -153,22 +157,17 @@ class RicoValidBoundary(RicoValidDataset):
             screenshot = Image.open(screenshot_path).convert("RGB")
             self.screenshot_cache[screenshot_id] = screenshot
         initial_transformed: torch.Tensor = self.initial_transform(screenshot)
-        mask = RicoValidBoundary._get_mask(initial_transformed, bbox)
-        transformed = torch.concat([initial_transformed, mask], dim=0)
+        masked = RicoValidBoundary.mask(initial_transformed, bbox)
 
-        return self.final_transform(transformed), label
+        return self.final_transform(masked), label
 
     @staticmethod
-    def _get_mask(
-        image: torch.Tensor, bbox: BBox, normalized: bool = True
-    ) -> torch.Tensor:
-        if normalized:
-            x0, y0, x1, y1 = bbox.scale(*image.size()[1:]).to_int_flattened()
-        else:
-            x0, y0, x1, y1 = bbox.to_int_flattened()
-        mask = torch.zeros((1, *image.size()[1:]))
-        mask[0, y0:y1, x0:x1] = 1.0
-        return mask
+    def mask(image: torch.Tensor, bbox: NormalizedBBox) -> torch.Tensor:
+        w, h = array_get_size(image)
+        x0, y0, x1, y1 = bbox.to_bbox(w, h).to_int_flattened()
+        mask = torch.zeros((1, 1, w, h))
+        mask[0, 0, y0:y1, x0:x1] = 1.0
+        return torch.concat([image, mask], dim=1)
 
     @classmethod
     def get_dataset_splits(

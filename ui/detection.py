@@ -6,7 +6,15 @@ import torch
 from ultralytics import YOLO  # type: ignore
 from ultralytics.engine.results import Results  # type: ignore
 
-from ..base import Array, BBox, Number, UiDetectionModule, UiElement
+from ..base import (
+    Array,
+    BBox,
+    NormalizedBBox,
+    Number,
+    UiDetectionModule,
+    UiElement,
+    array_get_size,
+)
 
 
 class BaseUiDetector(UiDetectionModule):
@@ -29,7 +37,7 @@ class DummyUiDetector(BaseUiDetector):
     ) -> Iterator[List[UiElement]]:
         for screenshot in screenshots:
             shape: Tuple[Number, Number] = tuple(screenshot.shape[:2])  # type: ignore
-            yield [UiElement("SCREEN", BBox((0, 0), shape), screenshot)]
+            yield [UiElement("SCREEN", NormalizedBBox.new((0, 0), (1, 1)), screenshot)]
 
 
 class YoloUiDetector(BaseUiDetector):
@@ -59,7 +67,9 @@ class YoloUiDetector(BaseUiDetector):
             yield [
                 UiElement(
                     results.names[int(cls)],
-                    BBox((x0, y0), (x1, y1)),
+                    BBox((x0, y0), (x1, y1)).to_normalized_unchecked(
+                        *array_get_size(results.orig_img)
+                    ),
                     screenshot=screenshot,
                 )
                 for (x0, y0, x1, y1), cls in zip(boxes, classes)

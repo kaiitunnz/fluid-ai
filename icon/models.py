@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Callable, List, Optional, Union
+from typing import Callable, List, Optional, Sequence, Union
 
 import torch
 from torchvision import transforms  # type: ignore
@@ -16,7 +16,7 @@ class BaseIconLabeller(UiDetectionModule):
     @abstractmethod
     def label(
         self,
-        images: Union[Array, List[Array]],
+        images: Union[Array, Sequence[Array]],
     ) -> Union[str, List[str]]:
         raise NotImplementedError()
 
@@ -41,7 +41,7 @@ class BaseIconLabeller(UiDetectionModule):
 class DummyIconLabeller(BaseIconLabeller):
     def label(
         self,
-        images: Union[Array, List[Array]],
+        images: Union[Array, Sequence[Array]],
     ) -> List[str]:
         return []
 
@@ -62,14 +62,14 @@ class ClassifierIconLabeller(BaseIconLabeller):
         self.transform = get_infer_transform(self.model.pretrained)
         self.batched = batched
 
-    def label(self, images: Union[Array, List[Array]]) -> Union[str, List[str]]:
+    def label(self, images: Union[Array, Sequence[Array]]) -> Union[str, List[str]]:
         # Assume that the images are of shape (h, w, c).
         def inner(image: Array) -> str:
             transformed = self.transform(_preprocess_image(image))
             _, class_idx = torch.max(self.model(transformed).data, 1)
             return self.model.classes[class_idx.item()]
 
-        def inner_batched(images: List[Array]) -> List[str]:
+        def inner_batched(images: Sequence[Array]) -> List[str]:
             if len(images) == 0:
                 return []
             tmp = [self.transform(_preprocess_image(image)) for image in images]
@@ -77,7 +77,7 @@ class ClassifierIconLabeller(BaseIconLabeller):
             _, class_indices = torch.max(self.model(transformed).data, -1)
             return [self.model.classes[class_idx.item()] for class_idx in class_indices]
 
-        if isinstance(images, list):
+        if isinstance(images, Sequence):
             if self.batched:
                 return inner_batched(images)
             return [inner(image) for image in images]
@@ -102,7 +102,7 @@ class CaptionIconLabeller(BaseIconLabeller):
         self.transform = labeldroid_utils.get_infer_transform()
         self.batched = batched
 
-    def label(self, images: Union[Array, List[Array]]) -> Union[str, List[str]]:
+    def label(self, images: Union[Array, Sequence[Array]]) -> Union[str, List[str]]:
         def get_sentence(sentence_id: List[int]) -> str:
             tmp = []
             for word_id in sentence_id:
@@ -119,7 +119,7 @@ class CaptionIconLabeller(BaseIconLabeller):
             sentence_ids = self.model(transformed).tolist()
             return get_sentence(sentence_ids[0])
 
-        def inner_batched(images: List[Array]) -> List[str]:
+        def inner_batched(images: Sequence[Array]) -> List[str]:
             if len(images) == 0:
                 return []
             tmp = [
@@ -130,7 +130,7 @@ class CaptionIconLabeller(BaseIconLabeller):
             sentence_ids = self.model(transformed).tolist()
             return [get_sentence(sentence_id) for sentence_id in sentence_ids]
 
-        if isinstance(images, list):
+        if isinstance(images, Sequence):
             if self.batched:
                 return inner_batched(images)
             return [inner(image) for image in images]

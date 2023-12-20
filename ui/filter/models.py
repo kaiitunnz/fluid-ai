@@ -1,11 +1,13 @@
 from abc import abstractmethod
-from typing import List
+from typing import List, Tuple
 
+import numpy as np
 import torch
 
 from .torch.datasets import RicoValidBoundary
-from ...base import Array, UiDetectionModule, UiElement
-from ...torchutils import BatchLoader, ModelWrapper, load_model
+from .torch.models import FilterModelWrapper
+from ...base import Array, UiDetectionModule, UiElement, array_get_size, array_to_tensor
+from ...torchutils import BatchLoader, load_model
 
 
 class BaseUiFilter(UiDetectionModule):
@@ -16,7 +18,7 @@ class BaseUiFilter(UiDetectionModule):
     def prefilter(self, elements: List[UiElement]) -> List[UiElement]:
         # Check bounding boxes
         elements = [
-            element for element in elements if BaseUiFilter.is_valid_bbox(element)
+            element for element in elements if self.__class__.is_valid_bbox(element)
         ]
 
         return elements
@@ -26,8 +28,13 @@ class BaseUiFilter(UiDetectionModule):
 
     @staticmethod
     def is_valid_bbox(element: UiElement) -> bool:
-        w, h = element.size()
-        return w > 0 and h > 0
+        w, h = array_get_size(element.get_cropped_image())
+        return w > 0 and h > 0 and element.bbox.is_valid()
+
+    @staticmethod
+    def preprocess_image(image: Array) -> torch.Tensor:
+        tensor_image = torch.unsqueeze(array_to_tensor(image), 0)
+        return tensor_image
 
 
 class DummyUiFilter(BaseUiFilter):
@@ -35,8 +42,8 @@ class DummyUiFilter(BaseUiFilter):
         return elements
 
 
-class ElementUiFilter(BaseUiFilter):
-    model: ModelWrapper
+class TorchUiFilter(BaseUiFilter):
+    model: FilterModelWrapper
     batch_size: int
 
     def __init__(
@@ -46,96 +53,69 @@ class ElementUiFilter(BaseUiFilter):
         device: torch.device = torch.device("cpu"),
     ):
         super().__init__()
-        self.model = load_model(model_path).to(device)
+        model = load_model(model_path).to(device)
+        assert isinstance(model, FilterModelWrapper)
+        self.model = model
         self.batch_size = batch_size
 
     def filter(self, elements: List[UiElement]) -> List[UiElement]:
         # Assume that the screenshots are of shape (h, w, c).
-        def inner(element: UiElement) -> int:
-            transformed = self.model.transform(
-                _preprocess_image(element.get_cropped_image())
-            )
-            out = self.model(transformed)
+        def infer(element: UiElement) -> int:
+            out = self.model(self.transform(element))
             return int(self.model.get_pred_idx(out).item())
 
-        def inner_batched(elements: List[UiElement]) -> List[int]:
+        def infer_batched(elements: List[UiElement]) -> List[int]:
             if len(elements) == 0:
                 return []
-            transformed = [
-                self.model.transform(_preprocess_image(element.get_cropped_image()))
-                for element in elements
-            ]
+            transformed = self.transform_batch(elements)
             result: List[int] = []
             loader = BatchLoader(self.batch_size, transformed)
             for batch in loader:
                 out = self.model(batch)
-                result.extend(self.model.get_pred_idx(out).to(torch.int).tolist())
-            return result
-
-        if self.batch_size == 1:
-            res = [inner(element) for element in elements]
-        else:
-            res = inner_batched(elements)
-
-        return [element for element, valid in zip(elements, res) if valid == 1]
-
-
-class BoundaryUiFilter(BaseUiFilter):
-    model: ModelWrapper
-    batch_size: int
-
-    def __init__(
-        self,
-        model_path: str,
-        batch_size: int = 1,
-        device: torch.device = torch.device("cpu"),
-    ):
-        super().__init__()
-        self.model = load_model(model_path).to(device)
-        self.batch_size = batch_size
-
-    def filter(self, elements: List[UiElement]) -> List[UiElement]:
-        # Assume that the screenshots are of shape (h, w, c).
-        def inner(element: UiElement) -> int:
-            transformed = self.model.transform(
-                _preprocess_image(element.get_screenshot())
-            )
-            mask = RicoValidBoundary._get_mask(
-                transformed, element.bbox, normalized=False
-            )
-            transformed = torch.concat([transformed, mask], dim=0)
-            out = self.model(transformed)
-            return int(self.model.get_pred_idx(out).item())
-
-        def inner_batched(elements: List[UiElement]) -> List[int]:
-            if len(elements) == 0:
-                return []
-            transformed = [
-                self.model.transform(_preprocess_image(element.get_screenshot()))
-                for element in elements
-            ]
-            transformed = [
-                torch.cat(
-                    [t, RicoValidBoundary._get_mask(t, e.bbox, normalized=False)], dim=0
+                result.extend(
+                    self.model.get_pred_idx(out).view((-1,)).to(torch.int).tolist()
                 )
-                for t, e in zip(transformed, elements)
-            ]
-            result: List[int] = []
-            loader = BatchLoader(self.batch_size, transformed)
-            for batch in loader:
-                out = self.model(batch)
-                result.extend(self.model.get_pred_idx(out).to(torch.int).tolist())
             return result
 
         if self.batch_size == 1:
-            res = [inner(element) for element in elements]
+            res = [infer(element) for element in elements]
         else:
-            res = inner_batched(elements)
+            res = infer_batched(elements)
 
         return [element for element, valid in zip(elements, res) if valid == 1]
 
+    @abstractmethod
+    def transform(self, element: UiElement) -> torch.Tensor:
+        raise NotImplementedError()
 
-def _preprocess_image(image: Array) -> torch.Tensor:
-    tensor_image = image if isinstance(image, torch.Tensor) else torch.tensor(image)
-    tensor_image = torch.unsqueeze(torch.permute(tensor_image, (2, 0, 1)), 0)
-    return tensor_image
+    @abstractmethod
+    def transform_batch(self, elements: List[UiElement]) -> List[torch.Tensor]:
+        raise NotImplementedError()
+
+
+class ElementUiFilter(TorchUiFilter):
+    def transform(self, element: UiElement) -> torch.Tensor:
+        return self.model.transform(
+            self.__class__.preprocess_image(element.get_cropped_image())
+        )
+
+    def transform_batch(self, elements: List[UiElement]) -> List[torch.Tensor]:
+        return [self.transform(element) for element in elements]
+
+
+class BoundaryUiFilter(TorchUiFilter):
+    def transform(self, element: UiElement) -> torch.Tensor:
+        transformed = self.model.transform(
+            self.__class__.preprocess_image(element.get_screenshot())
+        )
+        return RicoValidBoundary.mask(transformed, element.bbox)
+
+    def transform_batch(self, elements: List[UiElement]) -> List[torch.Tensor]:
+        if len(elements) == 0:
+            return []
+        screenshot: torch.Tensor = self.model.transform(
+            self.__class__.preprocess_image(elements[0].get_screenshot())
+        )
+        return [
+            RicoValidBoundary.mask(screenshot, element.bbox) for element in elements
+        ]

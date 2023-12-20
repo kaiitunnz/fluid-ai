@@ -1,9 +1,9 @@
 import numpy as np
 
-from ..base import BBox
+from ..base import BaseBBox
 
 
-def compute_iou(bbox1: BBox, bbox2: BBox) -> float:
+def compute_iou(bbox1: BaseBBox, bbox2: BaseBBox) -> float:
     ((x0_1, y0_1), (x1_1, y1_1)) = bbox1
     ((x0_2, y0_2), (x1_2, y1_2)) = bbox2
 

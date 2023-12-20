@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
+from typing import Any, Callable, Iterable, List, Optional, Sequence, Tuple, Union
 
 import cv2
 import easyocr  # type: ignore
@@ -17,7 +17,7 @@ class BaseOCR(UiDetectionModule):
     @abstractmethod
     def recognize(
         self,
-        images: Union[Array, List[Array]],
+        images: Union[Array, Sequence[Array]],
     ) -> Union[str, List[str]]:
         raise NotImplementedError()
 
@@ -97,7 +97,7 @@ class EasyOCR(BaseOCR):
         results = self._merge_results(self.model.readtext(image))
         return "\n".join((result.text or "") for result in results)
 
-    def _recognize_batched(self, images: List[Array]) -> List[str]:
+    def _recognize_batched(self, images: Sequence[Array]) -> List[str]:
         unmerged = self.model.readtext_batched(
             images,
             n_width=self.image_size[0],
@@ -110,9 +110,9 @@ class EasyOCR(BaseOCR):
 
     def recognize(
         self,
-        images: Union[Array, List[Array]],
+        images: Union[Array, Sequence[Array]],
     ) -> Union[str, List[str]]:
-        if isinstance(images, list):
+        if isinstance(images, Sequence):
             if self.batch_size <= 1:
                 return [self._recognize(image) for image in images]
             return self._recognize_batched(images)
@@ -132,7 +132,7 @@ class KerasOCR(BaseOCR):
 
     def recognize(
         self,
-        images: Union[Array, List[Array]],
+        images: Union[Array, Sequence[Array]],
     ) -> Union[str, List[str]]:
         if isinstance(images, list):
             # results = self.model.recognize(images)
@@ -162,7 +162,7 @@ class TesseractOCR(BaseOCR):
 
     def recognize(
         self,
-        images: Union[Array, List[Array]],
+        images: Union[Array, Sequence[Array]],
     ) -> Union[str, List[str]]:
         if isinstance(images, list):
             return [
