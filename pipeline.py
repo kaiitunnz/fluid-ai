@@ -29,12 +29,12 @@ class TestUiDetectionPipeline:
         self.icon_elements = icon_elements
 
     def detect(self, screenshots: Iterable[np.ndarray]) -> Iterator[List[UiElement]]:
-        for detected in self.detector.detect(list(screenshots)):
+        for detected in self.detector(list(screenshots)):
             icons = []
             for e in detected:
                 if e.name in self.icon_elements:
                     icons.append(e)
-            self.icon_labeller.process(icons)
+            self.icon_labeller(icons)
             yield detected
 
     def benchmark(self, screenshots: Iterable[np.ndarray]) -> pd.DataFrame:
@@ -52,7 +52,7 @@ class TestUiDetectionPipeline:
                 _ = next(self.detect([img]))  # warm up
                 first = False
             start = time.time()
-            detected: List[UiElement] = next(self.detector.detect([img]))
+            detected: List[UiElement] = next(self.detector([img]))
             ui_detection_time = time.time() - start  # 2
             num_detected = len(detected)  # 0
             icons = []
@@ -61,7 +61,7 @@ class TestUiDetectionPipeline:
                     icons.append(e)
             num_detected_icons = len(icons)  # 1
             start = time.time()
-            self.icon_labeller.process(icons)
+            self.icon_labeller(icons)
             icon_labelling_time = time.time() - start  # 3
             results.append(
                 [
@@ -108,14 +108,14 @@ class UiDetectionPipeline:
     ) -> Iterator[List[UiElement]]:
         if elements is None:
             elements = itertools.repeat([])
-        for detected, base in zip(self.detector.detect(list(screenshots)), elements):
-            filtered = self.filter.filter(base)
-            matched = self.matcher.match(filtered, detected)
+        for detected, base in zip(self.detector(list(screenshots)), elements):
+            filtered = self.filter(base)
+            matched = self.matcher(filtered, detected)
             icons = []
             for e in matched:
                 if e.name in self.icon_elements:
                     icons.append(e)
-            self.icon_labeller.process(icons)
+            self.icon_labeller(icons)
             yield matched
 
     def benchmark(
@@ -145,15 +145,15 @@ class UiDetectionPipeline:
                 _ = next(self.detect([img]))  # warm up
                 first = False
             start = time.time()
-            detected: List[UiElement] = next(self.detector.detect([img]))
+            detected: List[UiElement] = next(self.detector([img]))
             ui_detection_time = time.time() - start  # 4
             num_detected = len(detected)  # 0
             start = time.time()
-            filtered = self.filter.filter(base)
+            filtered = self.filter(base)
             filter_time = time.time() - start  # 5
             num_filtered = len(filtered)
             start = time.time()
-            matched = self.matcher.match(filtered, detected)
+            matched = self.matcher(filtered, detected)
             matching_time = time.time() - start  # 6
             num_matched = len(matched)  # 1
             textual = []
@@ -166,10 +166,10 @@ class UiDetectionPipeline:
             num_matched_textual = len(textual)  # 2
             num_matched_icons = len(icons)  # 3
             start = time.time()
-            self.text_recognizer.process(textual)
+            self.text_recognizer(textual)
             text_recognition_time = time.time() - start  # 7
             start = time.time()
-            self.icon_labeller.process(icons)
+            self.icon_labeller(icons)
             icon_labelling_time = time.time() - start  # 8
             results.append(
                 [
