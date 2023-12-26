@@ -4,8 +4,8 @@ from ..base import BaseBBox
 
 
 def compute_iou(bbox1: BaseBBox, bbox2: BaseBBox) -> float:
-    ((x0_1, y0_1), (x1_1, y1_1)) = bbox1
-    ((x0_2, y0_2), (x1_2, y1_2)) = bbox2
+    (x0_1, y0_1), (x1_1, y1_1) = bbox1
+    (x0_2, y0_2), (x1_2, y1_2) = bbox2
 
     x0_intersect = max(x0_1, x0_2)
     y0_intersect = max(y0_1, y0_2)
