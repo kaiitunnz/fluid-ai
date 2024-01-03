@@ -417,7 +417,7 @@ class BinaryF1Score(Metric):
         )
         denom = self._tp + ((self._fp + self._fn) / 2)
         if denom == 0:
-            return 0
+            return 0.0
         return self._tp / denom
 
     def reset(self):
@@ -475,7 +475,7 @@ class BinaryPrecision(Metric):
         )
         denom = self._tp + self._fp
         if denom == 0:
-            return 0
+            return 0.0
         return self._tp / denom
 
     def reset(self):
@@ -533,7 +533,7 @@ class BinaryRecall(Metric):
         )
         denom = self._tp + self._fn
         if denom == 0:
-            return 0
+            return 0.0
         return self._tp / (self._tp + self._fn)
 
     def reset(self):
