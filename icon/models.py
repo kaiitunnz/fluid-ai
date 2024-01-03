@@ -12,7 +12,7 @@ from .torch.datasets import get_infer_transform
 from ..torchutils import ModelWrapper, load_model
 
 
-class BaseIconLabeller(UiDetectionModule):
+class BaseIconLabeler(UiDetectionModule):
     @abstractmethod
     def label(
         self,
@@ -38,7 +38,7 @@ class BaseIconLabeller(UiDetectionModule):
             e.info["icon_label"] = labels
 
 
-class DummyIconLabeller(BaseIconLabeller):
+class DummyIconLabeler(BaseIconLabeler):
     def label(
         self,
         images: Union[Array, Sequence[Array]],
@@ -46,7 +46,7 @@ class DummyIconLabeller(BaseIconLabeller):
         return []
 
 
-class ClassifierIconLabeller(BaseIconLabeller):
+class ClassifierIconLabeler(BaseIconLabeler):
     model: ModelWrapper
     transform: transforms.Compose
     batched: bool
@@ -84,7 +84,7 @@ class ClassifierIconLabeller(BaseIconLabeller):
         return inner(images)
 
 
-class CaptionIconLabeller(BaseIconLabeller):
+class CaptionIconLabeler(BaseIconLabeler):
     model: LabelDroid
     transform: transforms.Compose
     batched: bool

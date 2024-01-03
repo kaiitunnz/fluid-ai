@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd  # type: ignore
 
 from .base import Array, UiElement
-from .icon import BaseIconLabeller
+from .icon import BaseIconLabeler
 from .ocr import BaseOCR
 from .ui.detection import BaseUiDetector
 from .ui.filter import BaseUiFilter
@@ -14,18 +14,24 @@ from .ui.matching import BaseUiMatching
 
 
 class TestUiDetectionPipeline:
+    """
+    A UI detection pipeline for testing specific UI detection modules.
+
+    It should not be used in a deployment environment.
+    """
+
     detector: BaseUiDetector
-    icon_labeller: BaseIconLabeller
+    icon_labeler: BaseIconLabeler
     icon_elements: List[str]
 
     def __init__(
         self,
         detector: BaseUiDetector,
-        icon_labeller: BaseIconLabeller,
+        icon_labeler: BaseIconLabeler,
         icon_elements: List[str],
     ):
         self.detector = detector
-        self.icon_labeller = icon_labeller
+        self.icon_labeler = icon_labeler
         self.icon_elements = icon_elements
 
     def detect(self, screenshots: Iterable[np.ndarray]) -> Iterator[List[UiElement]]:
@@ -34,7 +40,7 @@ class TestUiDetectionPipeline:
             for e in detected:
                 if e.name in self.icon_elements:
                     icons.append(e)
-            self.icon_labeller(icons)
+            self.icon_labeler(icons)
             yield detected
 
     def benchmark(self, screenshots: Iterable[np.ndarray]) -> pd.DataFrame:
@@ -61,7 +67,7 @@ class TestUiDetectionPipeline:
                     icons.append(e)
             num_detected_icons = len(icons)  # 1
             start = time.time()
-            self.icon_labeller(icons)
+            self.icon_labeler(icons)
             icon_labelling_time = time.time() - start  # 3
             results.append(
                 [
@@ -75,12 +81,33 @@ class TestUiDetectionPipeline:
 
 
 class UiDetectionPipeline:
+    """
+    A sequential UI detection pipeline.
+
+    Attributes
+    ----------
+    detector : BaseUiDetector
+        UI detection model.
+    filter : BaseUiFilter
+        UI filter model, aka invalid UI detection model.
+    matcher : BaseUiMatching
+        UI matching model.
+    text_recognizer : BaseOCR
+        Text recognition module.
+    textual_elements : List[str]
+        Names of UI classes corresponding to textual UI elements.
+    icon_labeler : BaseIconLabeler
+        Icon labeling module.
+    icon_elements : List[str]
+        Names of UI classes corresponding to icon UI elements.
+    """
+
     detector: BaseUiDetector
     filter: BaseUiFilter
     matcher: BaseUiMatching
     text_recognizer: BaseOCR
     textual_elements: List[str]
-    icon_labeller: BaseIconLabeller
+    icon_labeler: BaseIconLabeler
     icon_elements: List[str]
 
     def __init__(
@@ -90,15 +117,33 @@ class UiDetectionPipeline:
         matcher: BaseUiMatching,
         text_recognizer: BaseOCR,
         textual_elements: List[str],
-        icon_labeller: BaseIconLabeller,
+        icon_labeler: BaseIconLabeler,
         icon_elements: List[str],
     ):
+        """
+        Parameters
+        ----------
+        detector : BaseUiDetector
+            UI detection model.
+        filter : BaseUiFilter
+            UI filter model, aka invalid UI detection model.
+        matcher : BaseUiMatching
+            UI matching model.
+        text_recognizer : BaseOCR
+            Text recognition module.
+        textual_elements : List[str]
+            Names of UI classes corresponding to textual UI elements.
+        icon_labeler : BaseIconLabeler
+            Icon labeling module.
+        icon_elements : List[str]
+            Names of UI classes corresponding to icon UI elements.
+        """
         self.detector = detector
         self.filter = filter
         self.matcher = matcher
         self.text_recognizer = text_recognizer
         self.textual_elements = textual_elements
-        self.icon_labeller = icon_labeller
+        self.icon_labeler = icon_labeler
         self.icon_elements = icon_elements
 
     def detect(
@@ -106,6 +151,21 @@ class UiDetectionPipeline:
         screenshots: Iterable[Array],
         elements: Optional[Iterable[List[UiElement]]] = None,
     ) -> Iterator[List[UiElement]]:
+        """Detects UI elements and extract their auxiliary information from the given
+        screenshots
+
+        Parameters
+        ----------
+        screenshots : Iterable[Array]
+            Screenshots to detect UI elements.
+        elements : Optional[Iterable[List[UiElement]]]
+            Lists of additional UI elements.
+
+        Returns
+        -------
+        Iterator[List[UiElement]]
+            Lists of detected UI elements.
+        """
         if elements is None:
             elements = itertools.repeat([])
         for detected, base in zip(self.detector(list(screenshots)), elements):
@@ -115,7 +175,7 @@ class UiDetectionPipeline:
             for e in matched:
                 if e.name in self.icon_elements:
                     icons.append(e)
-            self.icon_labeller(icons)
+            self.icon_labeler(icons)
             yield matched
 
     def benchmark(
@@ -123,6 +183,20 @@ class UiDetectionPipeline:
         screenshots: Iterable[Array],
         elements: Optional[Iterable[List[UiElement]]] = None,
     ) -> pd.DataFrame:
+        """Benchmarks the UI detection pipeline using the given screenshots.
+
+        Parameters
+        ----------
+        screenshots : Iterable[Array]
+            Screenshots to detect UI elements.
+        elements : Optional[Iterable[List[UiElement]]]
+            Lists of additional UI elements.
+
+        Returns
+        -------
+        DataFrame
+            Benchmark results.
+        """
         if elements is None:
             elements = itertools.repeat([])
         textual_elements = set(self.textual_elements)
@@ -169,7 +243,7 @@ class UiDetectionPipeline:
             self.text_recognizer(textual)
             text_recognition_time = time.time() - start  # 7
             start = time.time()
-            self.icon_labeller(icons)
+            self.icon_labeler(icons)
             icon_labelling_time = time.time() - start  # 8
             results.append(
                 [
