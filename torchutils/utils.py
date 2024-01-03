@@ -31,6 +31,7 @@ def save_model(
     criterion : Module
         PyTorch criterion used to train the model.
     """
+    requires_grad = next(model.parameters()).requires_grad
     for params in model.parameters():
         params.requires_grad = False
     device = model.device()
@@ -44,7 +45,7 @@ def save_model(
         path,
     )
     for params in model.parameters():
-        params.requires_grad = True
+        params.requires_grad = requires_grad
     model.to(device)
 
 
