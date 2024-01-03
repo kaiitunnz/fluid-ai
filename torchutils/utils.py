@@ -183,7 +183,7 @@ class BatchLoader:
 
     def __iter__(self) -> Iterator[torch.Tensor]:
         if self.batch_size <= 0:
-            return iter([torch.cat(self.data, dim=0)])
+            return iter([torch.stack(self.data, dim=0)])
         return self
 
     def __next__(self) -> torch.Tensor:
@@ -191,4 +191,4 @@ class BatchLoader:
             raise StopIteration()
         batch = self.data[self._i : self._i + self.batch_size]
         self._i += self.batch_size
-        return torch.cat(batch, dim=0)
+        return torch.stack(batch, dim=0)
