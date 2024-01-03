@@ -3,35 +3,75 @@ from PIL import Image  # type: ignore
 from typing import Callable, List, Optional, Tuple
 
 import torch
-from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms  # type: ignore
+from typing_extensions import Self
 
-IMAGE_SIZE = 224
+from ...torchutils.wrapper import DatasetWrapper
+from .models import IconLabelerTransform
 
 
-class RicoIconDataset(Dataset):
+class RicoIconDataset(DatasetWrapper):
+    """
+    A wrapper for the RicoIcon dataset.
+
+    Attributes
+    ----------
+    root : str
+        Path to the root directory of the dataset.
+    pretrained : bool
+        Whether the model to run on use pre-trained weights.
+    classes : List[str]
+        List of output class names.
+    icon_paths : List[Tuple[str, str]]
+        List of tuples of the form `(icon_class, fname)` indicating the label and
+        filename of each sample.
+    directional_icons : List[str]
+        List of icon classes considered directional icons.
+    transform : Callable
+        Transformation to be performed on non-directional icons.
+    directional_transform : Callable
+        Transformation to be performed on directional icons.
+    augment : bool
+        Whether to append the data augmentation steps to the end of each transformation.
+    """
+
     root: str
-    training: bool
     pretrained: bool
-    image_size: int
     classes: List[str]
     icon_paths: List[Tuple[str, str]]
     directional_icons: List[str]
     transform: Callable
     directional_transform: Callable
+    augment: bool
 
     def __init__(
         self,
         root: str,
-        training: bool,
         pretrained: bool,
-        image_size: int = IMAGE_SIZE,
+        transform: Callable,
+        directional_transform: Callable,
         directional_icons: Optional[List[str]] = None,
+        augment: bool = False,
     ):
+        """
+        Parameters
+        ----------
+        root : str
+            Path to the root directory of the dataset.
+        pretrained : bool
+            Whether the model to run on use pre-trained weights.
+        transform : Callable
+            Transformation to be performed on non-directional icons.
+        directional_transform : Callable
+            Transformation to be performed on directional icons.
+        directional_icons : Optional[List[str]]
+            List of icon classes considered directional icons. `None` if there is
+            no directional icon class.
+        augment : bool
+            Whether to append the data augmentation steps to the end of each transformation.
+        """
         self.root = root
-        self.training = training
         self.pretrained = pretrained
-        self.image_size = image_size
         self.directional_icons = directional_icons or []
 
         self.classes: List[str] = []
@@ -45,12 +85,22 @@ class RicoIconDataset(Dataset):
                 )
         self.class2idx = {cls: i for i, cls in enumerate(self.classes)}
 
-        if self.training:
-            self.transform = self._train_transform()
-            self.directional_transform = self._train_directional_transform()
+        if augment:
+            self.transform = transforms.Compose(
+                [
+                    transform,
+                    IconLabelerTransform.augment_transform(directional=False),
+                ]
+            )
+            self.directional_transform = transforms.Compose(
+                [
+                    directional_transform,
+                    IconLabelerTransform.augment_transform(directional=True),
+                ]
+            )
         else:
-            self.transform = self._valid_transform()
-            self.directional_transform = self.transform
+            self.transform = transform
+            self.directional_transform = directional_transform
 
     def __len__(self):
         return len(self.icon_paths)
@@ -68,90 +118,69 @@ class RicoIconDataset(Dataset):
 
         return transformed, self.class2idx[icon_class]
 
-    def _train_transform(self) -> transforms.Compose:
-        return transforms.Compose(
-            [
-                transforms.Resize((self.image_size, self.image_size)),
-                transforms.RandomHorizontalFlip(p=0.5),
-                transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
-                transforms.RandomAdjustSharpness(sharpness_factor=2, p=0.5),
-                transforms.ToTensor(),
-                _normalize_transform(self.pretrained),
-            ]
+    def labels(self) -> List[int]:
+        return [self.class2idx[icon_class] for icon_class, _ in self.icon_paths]
+
+    @classmethod
+    def get_dataset_splits(
+        cls,
+        root_dir: str,
+        pretrained: bool,
+        train_transform: Callable,
+        directional_transform: Callable,
+        valid_transform: Callable,
+        directional_icons: Optional[List[str]] = None,
+        train_augment: bool = False,
+    ) -> Tuple[Self, Self, Self, List[str]]:
+        """Gets the training, validation, and test splits of the dataset.
+
+        Parameters
+        ----------
+        root_dir : str
+            Path to the root directory of the dataset within which there must be
+            three subdirectories: "train", "val", and "test".
+        pretrained : bool
+            Whether the model to run on use pre-trained weights.
+        train_transform : Callable
+            Transformation to be performed on non-directional icons during training.
+        directional_transform : Callable
+            Transformation to be performed on directional icons during training.
+        valid_transform : Callable
+            Transformation for model validation or inference.
+        directional_icons : Optional[List[str]]
+            List of icon classes considered directional icons. `None` if there is
+            no directional icon class.
+        train_augment : bool
+            Whether to append the data augmentation steps to the end of each transformation.
+
+        Returns
+        -------
+        Tuple[RicoIconDataset, RicoIconDataset, RicoIconDataset, List[str]]
+            `(train_split, val_split, test_split, class_names)`.
+        """
+        train = cls(
+            os.path.join(root_dir, "train"),
+            pretrained,
+            train_transform,
+            directional_transform,
+            directional_icons,
+            train_augment,
         )
-
-    def _train_directional_transform(self) -> transforms.Compose:
-        return transforms.Compose(
-            [
-                transforms.Resize((self.image_size, self.image_size)),
-                transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
-                transforms.RandomAdjustSharpness(sharpness_factor=2, p=0.5),
-                transforms.ToTensor(),
-                _normalize_transform(self.pretrained),
-            ]
+        val = cls(
+            os.path.join(root_dir, "val"),
+            pretrained,
+            valid_transform,
+            directional_transform,
+            directional_icons=None,
+            augment=False,
         )
-
-    def _valid_transform(self) -> transforms.Compose:
-        return transforms.Compose(
-            [
-                transforms.Resize((self.image_size, self.image_size)),
-                transforms.ToTensor(),
-                _normalize_transform(self.pretrained),
-            ]
+        test = cls(
+            os.path.join(root_dir, "test"),
+            pretrained,
+            valid_transform,
+            directional_transform,
+            directional_icons=None,
+            augment=False,
         )
-
-
-def get_infer_transform(
-    pretrained: bool, image_size: int = IMAGE_SIZE
-) -> transforms.Compose:
-    return transforms.Compose(
-        [
-            transforms.Resize((image_size, image_size)),
-            _normalize_transform(pretrained),
-        ]
-    )
-
-
-def _normalize_transform(pretrained: bool) -> transforms.Normalize:
-    if pretrained:
-        normalize = transforms.Normalize(
-            mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-        )
-    else:
-        normalize = transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
-    return normalize
-
-
-def get_datasets(
-    root_dir: str,
-    pretrained: bool,
-    directional_icons: Optional[List[str]] = None,
-    image_size: int = IMAGE_SIZE,
-) -> Tuple[Dataset, Dataset, Dataset, List[str]]:
-    train = RicoIconDataset(
-        os.path.join(root_dir, "train"),
-        True,
-        pretrained,
-        image_size,
-        directional_icons,
-    )
-    val = RicoIconDataset(
-        os.path.join(root_dir, "val"),
-        False,
-        pretrained,
-        image_size,
-    )
-    test = RicoIconDataset(
-        os.path.join(root_dir, "test"),
-        False,
-        pretrained,
-        image_size,
-    )
-    assert train.classes == val.classes and val.classes == test.classes
-    return train, val, test, train.classes
-
-
-def get_data_loaders(data: Dataset, batch_size: int = 16, num_workers: int = 4):
-    return DataLoader(
-        data, batch_size=batch_size, shuffle=True, num_workers=num_workers
-    )
+        assert train.classes == val.classes and val.classes == test.classes
+        return train, val, test, train.classes
