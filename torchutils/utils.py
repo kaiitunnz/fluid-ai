@@ -1,9 +1,10 @@
 import os
-from typing import Any, Dict, List, Iterator
+from typing import Any, Dict, Iterator, List, Optional
 
 import matplotlib.pyplot as plt  # type: ignore
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader, Dataset, Sampler
 
 from .wrapper import ModelWrapper
 
@@ -15,8 +16,20 @@ def save_model(
     optimizer: torch.optim.Optimizer,
     criterion: nn.Module,
 ):
-    """
-    Save the model for inference.
+    """Saves the model checkpoint with some additional states
+
+    Parameters
+    ----------
+    path : str
+        Path to save the checkpoint.
+    epoch : int
+        Epoch at which the checkpoint is saved.
+    model : ModelWrapper
+        Model to be saved.
+    optimizer : Optimizer
+        PyTorch optimizer used to train the model.
+    criterion : Module
+        PyTorch criterion used to train the model.
     """
     for params in model.parameters():
         params.requires_grad = False
@@ -36,6 +49,18 @@ def save_model(
 
 
 def load_model(path: str) -> ModelWrapper:
+    """Loads the model saved by `save_model()`
+
+    Parameters
+    ----------
+    path : str
+        Path to the saved model.
+
+    Returns
+    -------
+    ModelWrapper
+        Loaded model.
+    """
     return torch.load(path)["model"]
 
 
@@ -46,11 +71,32 @@ def save_plots(
     train_metrics: Dict[str, List[Any]],
     val_metrics: Dict[str, List[Any]],
 ):
+    """Saves the plots of training results
+
+    Parameters
+    ----------
+    save_dir : str
+        Path to the directory to save the plots.
+    train_loss : List[float]
+        Training loss history.
+    valid_loss : List[float]
+        Validation loss history.
+    train_metrics : Dict[str, List[Any]]
+        History of training metrics' values.
+    val_metrics : Dict[str, List[Any]]
+        History of validation metrics' values.
+    """
     # metric plots
-    for metric, hist in train_metrics.items():
+    metric_set = set(train_metrics.keys())
+    metric_set.update(val_metrics.keys())
+    for metric in metric_set:
         plt.figure(figsize=(10, 7))
-        plt.plot(hist, color="green", linestyle="-", label=metric)
-        plt.plot(hist, color="blue", linestyle="-", label=metric)
+        tmp = train_metrics.get(metric)
+        if tmp is not None:
+            plt.plot(tmp, color="green", linestyle="-", label="training")
+        tmp = val_metrics.get(metric)
+        if tmp is not None:
+            plt.plot(tmp, color="blue", linestyle="-", label="validation")
         plt.xlabel("Epochs")
         plt.ylabel(metric)
         plt.legend()
@@ -66,16 +112,73 @@ def save_plots(
     plt.savefig(os.path.join(save_dir, "loss_hist.png"))
 
 
+def get_data_loaders(
+    data: Dataset,
+    batch_size: int = 16,
+    sampler: Optional[Sampler] = None,
+    num_workers: int = 4,
+) -> DataLoader:
+    """Get a data loader for the given dataset.
+
+    Parameters
+    ----------
+    data : Dataset
+        The target dataset.
+    batch_size : int
+        The batch size.
+    sampler : Optional[Sampler]
+        Sampler, if used. Otherwise, None.
+    num_workers : int
+        Number of worker threads to load data.
+
+    Returns
+    -------
+    DataLoader
+        A data loader for the given dataset.
+    """
+    if sampler is None:
+        return DataLoader(
+            data,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=num_workers,
+        )
+    return DataLoader(
+        data,
+        batch_size=batch_size,
+        sampler=sampler,
+        num_workers=num_workers,
+    )
+
+
 class BatchLoader:
+    """
+    A lightweight data loader.
+
+    Attributes
+    ----------
+    batch_size : int
+        Batch size.
+    data : List[torch.Tensor]
+        List of data samples.
+    """
+
     batch_size: int
     data: List[torch.Tensor]
-    i: int = 0
-    length: int
+
+    _i: int = 0
 
     def __init__(self, batch_size: int, data: List[torch.Tensor]):
+        """
+        Parameters
+        ----------
+        batch_size : int
+            Batch size.
+        data : List[torch.Tensor]
+            List of data samples.
+        """
         self.batch_size = batch_size
         self.data = data
-        self.length = len(self.data)
 
     def __iter__(self) -> Iterator[torch.Tensor]:
         if self.batch_size <= 0:
@@ -83,8 +186,8 @@ class BatchLoader:
         return self
 
     def __next__(self) -> torch.Tensor:
-        if self.i >= self.length:
+        if self._i >= len(self.data):
             raise StopIteration()
-        batch = self.data[self.i : self.i + self.batch_size]
-        self.i += self.batch_size
+        batch = self.data[self._i : self._i + self.batch_size]
+        self._i += self.batch_size
         return torch.cat(batch, dim=0)
