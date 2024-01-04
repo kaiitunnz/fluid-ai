@@ -15,6 +15,15 @@ DEFAULT_RESNET50_IMGSIZE = 224
 
 
 class FilterModelWrapper(ModelWrapper):
+    """
+    A wrapper for a UI filter model, aka an invalid UI detection model.
+
+    Attributes
+    ----------
+    threshold: float
+        A threshold value above which the input is considered valid.
+    """
+
     threshold: float
 
     def __init__(
@@ -25,16 +34,63 @@ class FilterModelWrapper(ModelWrapper):
         transform: Optional[Callable] = None,
         threshold: float = 0.0,
     ):
+        """
+        Parameters
+        ----------
+        model : Module
+            A PyTorch binary classification model.
+        pretrained : bool
+            Whether the model has pre-trained weights.
+        classes : List[Any]
+            Names of the output classes.
+        transform : Optional[Callable]
+            A Callable which transforms an image into a tensor.
+        threshold: float
+            A threshold value above which the input is considered valid.
+        """
         super().__init__(model, pretrained, classes, transform)
         self.threshold = threshold
 
     def get_pred_idx(self, out: torch.Tensor) -> torch.Tensor:
+        """Computes prediction labels based on the model's output
+
+        Parameters
+        ----------
+        out : Tensor
+            The model's output.
+
+        Returns
+        -------
+        Tensor
+            Output prediction labels.
+        """
         result = torch.zeros_like(out)
         result[out > self.threshold] = 1
         return result
 
 
 class UiFilterTransform(nn.Module):
+    """
+    Transformation for UI filter models
+
+    Attributes
+    ----------
+    resize_size: List[int]
+        The size to which the input images will be resized.
+    mean: List[float]
+        The channel means to which the images' pixel values will be normalized.
+    std: List[float]
+        The channel standard deviations to which the images' pixel values will
+        be normalized.
+    interpolation: InterpolationMode
+        Interpolation model to be used for resizing the input images.
+    """
+
+    resize_size: List[int]
+    mean: List[float]
+    std: List[float]
+    interpolation: transforms.InterpolationMode
+
     def __init__(
         self,
         *,
@@ -42,7 +98,22 @@ class UiFilterTransform(nn.Module):
         mean: Tuple[float, ...] = (0.485, 0.456, 0.406),
         std: Tuple[float, ...] = (0.229, 0.224, 0.225),
         interpolation: transforms.InterpolationMode = transforms.InterpolationMode.BILINEAR,
-    ) -> None:
+    ):
+        """
+        Parameters
+        ----------
+        resize_size: Union[Tuple[int, int], int]
+            The size to which the input images will be resized. If it is a tuple,
+            the target size will be exactly as specified. If it is an integer, the
+            target size will be a square whose sides have the specified length.
+        mean: Tuple[float, ...]
+            The channel means to which the images' pixel values will be normalized.
+        std: Tuple[float, ...]
+            The channel standard deviations to which the images' pixel values will
+            be normalized.
+        interpolation: InterpolationMode
+            Interpolation model to be used for resizing the input images.
+        """
         super().__init__()
         self.resize_size = (
             list(resize_size)
@@ -76,7 +147,25 @@ def build_efficientnet_v2_s(
     masked: bool = False,
     pretrained: bool = True,
     imgsize: int = DEFAULT_EFFICIENTNETV2_S_IMGSIZE,
-) -> ModelWrapper:
+) -> FilterModelWrapper:
+    """Builds a UI filter model with an EfficientNetV2-S backbone
+
+    Parameters
+    ----------
+    classes : List[Any]
+        Names of the output classes.
+    masked : bool
+        Whether to use a mask channel (for a boundary-based model).
+    pretrained : bool
+        Whether to use pre-trained weights.
+    imgsize : int
+        Image size to be used.
+
+    Returns
+    -------
+    FilterModelWrapper
+        A wrapped UI filter model.
+    """
     if pretrained:
         print("[INFO]: Loading pre-trained weights")
         model = models.efficientnet_v2_s(models.EfficientNet_V2_S_Weights.DEFAULT)
@@ -112,7 +201,25 @@ def build_efficientnet_v2_m(
     masked: bool = False,
     pretrained: bool = True,
     imgsize: int = DEFAULT_EFFICIENTNETV2_M_IMGSIZE,
-) -> ModelWrapper:
+) -> FilterModelWrapper:
+    """Builds a UI filter model with an EfficientNetV2-M backbone
+
+    Parameters
+    ----------
+    classes : List[Any]
+        Names of the output classes.
+    masked : bool
+        Whether to use a mask channel (for a boundary-based model).
+    pretrained : bool
+        Whether to use pre-trained weights.
+    imgsize : int
+        Image size to be used.
+
+    Returns
+    -------
+    FilterModelWrapper
+        A wrapped UI filter model.
+    """
     if pretrained:
         print("[INFO]: Loading pre-trained weights")
         model = models.efficientnet_v2_m(models.EfficientNet_V2_M_Weights.DEFAULT)
@@ -147,7 +254,23 @@ def build_resnet_50(
     classes: List[Any],
     pretrained: bool = True,
     imgsize: int = DEFAULT_RESNET50_IMGSIZE,
-) -> ModelWrapper:
+) -> FilterModelWrapper:
+    """Builds a UI filter model with a ResNet-50 backbone
+
+    Parameters
+    ----------
+    classes : List[Any]
+        Names of the output classes.
+    pretrained : bool
+        Whether to use pre-trained weights.
+    imgsize : int
+        Image size to be used.
+
+    Returns
+    -------
+    FilterModelWrapper
+        A wrapped UI filter model.
+    """
     if pretrained:
         print("[INFO]: Loading pre-trained weights")
         model = models.resnet50(models.ResNet50_Weights.DEFAULT)

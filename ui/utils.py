@@ -4,6 +4,20 @@ from ..base import BaseBBox
 
 
 def compute_iou(bbox1: BaseBBox, bbox2: BaseBBox) -> float:
+    """Computes Intersection over Union (IoU) value of the given bounding boxes
+
+    Parameters
+    ----------
+    bbox1 : BaseBBox
+        First bounding box.
+    bbox2 : BaseBBox
+        Second bounding box.
+
+    Returns
+    -------
+    float
+        IoU value
+    """
     (x0_1, y0_1), (x1_1, y1_1) = bbox1
     (x0_2, y0_2), (x1_2, y1_2) = bbox2
 
@@ -27,4 +41,18 @@ def compute_iou(bbox1: BaseBBox, bbox2: BaseBBox) -> float:
 
 
 def cosine_similarity(u: np.ndarray, v: np.ndarray) -> float:
+    """Computes cosine similarity between two vectors
+
+    Parameters
+    ----------
+    u : ndarray
+        First vector
+    v : ndarray
+        Second vector
+
+    Returns
+    -------
+    float
+        Cosine similarity value
+    """
     return np.dot(u, v) / (np.sqrt(np.sum(u**2) * np.sum(v**2)))  # type: ignore

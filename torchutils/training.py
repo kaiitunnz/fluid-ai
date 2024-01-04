@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
+from typing import Dict, List, NamedTuple, Optional, Union
 
 import pandas as pd  # type: ignore
 import torch
@@ -16,7 +16,20 @@ from .wrapper import ModelWrapper
 
 class RandomSampler(Sampler):
     """
+    A data sampler based on multinomial distribution given the label weights.
+
     Adapted from https://github.com/ufoym/imbalanced-dataset-sampler/tree/master.
+
+    Attributes
+    ----------
+    dataset : Dataset
+        The dataset.
+    indices : List[int]
+        List of sample indices.
+    num_samples : int
+        Number of all samples.
+    weights : Tensor
+        Sampling probability or weight of each sample.
     """
 
     dataset: Dataset
@@ -30,6 +43,18 @@ class RandomSampler(Sampler):
         labels: List[int],
         ratio: Optional[Union[List[float], Dict[int, float]]],
     ):
+        """
+        Parameters
+        ----------
+        dataset : Dataset
+            The dataset.
+        labels : List[int]
+            List of sample label indices.
+        ratio : Optional[Union[List[float], Dict[int, float]]]
+            If None, each sample will be given the same weight. If it is a list, each
+            weight in the list corresponds to the label equal to its index. If it is
+            a dictionary, it must contain a mapping from label indices to weights.
+        """
         self.indices = list(range(len(dataset)))  # type: ignore
         self.num_samples = len(self.indices)
 
@@ -45,7 +70,7 @@ class RandomSampler(Sampler):
         else:
             index, values = zip(*ratio.items())
             ratio_df = pd.Series(values, index=index)
-        weights = ratio_df[df["label"]] / label_to_count[df["label"]]
+        weights = ratio_df[df["label"]] / label_to_count[df["label"]]  # type: ignore
 
         self.weights = torch.DoubleTensor(weights.to_list())
 
@@ -60,24 +85,104 @@ class RandomSampler(Sampler):
 
 
 class EarlyStopper:
+    """
+    An early stopper for training a model.
+
+    It internally maintains a counter, which is updated according to the following
+    conditions:
+
+    1) `loss_i < min_{k < i}(loss_k)`: reset the counter to 0.
+    2) `loss_i >= min_{k < i}(loss_k) + min_delta`: increment the counter by 1.
+    3) Otherwise: do nothing.
+
+    Attributes
+    ----------
+    patience : int
+        Maximum counter value before stopping.
+    min_delta : float
+        A parameter determining how to update the counter.
+    """
+
+    patience: int
+    min_delta: float
+
+    _counter: int
+    _min_loss: float
+
     def __init__(self, patience: int = 1, min_delta: float = 0.0):
+        """
+        Parameters
+        ----------
+        patience : int
+            Maximum counter value before stopping.
+        min_delta : float
+            A parameter determining how to update the counter.
+        """
         self.patience = patience
         self.min_delta = min_delta
-        self.counter = 0
-        self.min_loss = float("inf")
+        self._counter = 0
+        self._min_loss = float("inf")
 
     def stop(self, loss: float) -> bool:
-        if loss < self.min_loss:
-            self.min_loss = loss
-            self.counter = 0
-        elif loss >= (self.min_loss + self.min_delta):
-            self.counter += 1
-            if self.counter >= self.patience:
+        """Checks whether to stop training
+
+        By default, it considers the argument metric value (`loss`) as a loss value.
+        To use positive metrics such as accuracy, pass a negative value, e.g. `-accuracy`.
+
+        Parameters
+        ----------
+        loss : float
+            Metric value.
+
+        Returns
+        -------
+        bool
+            Whether to stop training at this iteration/epoch.
+        """
+        if loss < self._min_loss:
+            self._min_loss = loss
+            self._counter = 0
+        elif loss >= (self._min_loss + self.min_delta):
+            self._counter += 1
+            if self._counter >= self.patience:
                 return True
         return False
 
 
 class TrainConfig(NamedTuple):
+    """
+    Model training configuration.
+
+    Attributes
+    ----------
+    optimizer : Optimizer
+        PyTorch optimizer.
+    criterion : Module
+        PyTorch implementation of a loss function.
+    train_metrics : MetricList
+        List of metrics to be computed while training.
+    val_metrics : MetricList
+        List of validation metrics.
+    scheduler : Optional[_LRscheduler]
+        PyTorch implementation of a learning rate scheduler.
+    num_epochs : int
+        Total number of epochs to train the model.
+    early_stopper : Optional[EarlyStopper]
+        Early stopper.
+    device : device
+        Device to train the model on.
+    results_dir : Optional[str]
+        Path to the directory to store the training results.
+    save_period : int
+        Number of epochs to periodically save the model checkpoints. (The best model
+        will still be saved at the end of every epoch.)
+    overwrite : bool
+        Whether to overwrite the previous training results found at the path indicated
+        by `results_dir`.
+    verbose : bool
+        Whether to log the training progress in detail.
+    """
+
     optimizer: torch.optim.Optimizer
     criterion: nn.Module
     train_metrics: MetricList
@@ -88,12 +193,31 @@ class TrainConfig(NamedTuple):
     device: torch.device = torch.device("cpu")
     results_dir: Optional[str] = None
     save_period: int = 5
-    pretrained: bool = True
     overwrite: bool = False
     verbose: bool = True
 
 
 class EvalConfig(NamedTuple):
+    """
+    Model evaluation configuration.
+
+    Attributes
+    ----------
+    results_dir : str
+        Path to the directory to store the evaluation results.
+    classes : Optional[List[str]]
+        List of class names. It must correspond to the model's output indices.
+    metrics : MetricList
+        List of evaluation metrics.
+    device : device
+        The device to evaluate the model on.
+    overwrite : bool
+        Whether to overwrite the previous evaluation results found at the path indicated
+        by `results_dir`.
+    verbose : bool
+        Whether to log the evaluation progress in detail.
+    """
+
     results_dir: str
     classes: Optional[List[str]]
     metrics: MetricList
@@ -103,6 +227,15 @@ class EvalConfig(NamedTuple):
 
 
 def _init_training(train_config: TrainConfig):
+    """Initializes the training process from the given configuration
+
+    It checks and initializes the directory to store the training results.
+
+    Parameters
+    ----------
+    train_config : TrainConfig
+        Model training configuration.
+    """
     if train_config.results_dir is None:
         return None
     checkpoint_path = _get_checkpoint_path(train_config)
@@ -114,16 +247,49 @@ def _init_training(train_config: TrainConfig):
 
 
 def _init_eval(eval_config: EvalConfig):
+    """Initializes the evaluation process from the given configuration
+
+    It checks and initializes the directory to store the evaluation results.
+
+    Parameters
+    ----------
+    eval_config : EvalConfig
+        Model evaluation configuration.
+    """
     os.makedirs(eval_config.results_dir, exist_ok=eval_config.overwrite)
 
 
 def _get_checkpoint_path(train_config: TrainConfig) -> Optional[str]:
+    """Gets the path to store model checkpoints from training config
+
+    Parameters
+    ----------
+    train_config : TrainConfig
+        Model training configuration.
+
+    Returns
+    -------
+    Optional[str]
+        Path to store model checkpoints.
+    """
     if train_config.results_dir is None:
         return None
     return os.path.join(train_config.results_dir, "checkpoints")
 
 
 def _get_plot_path(train_config: TrainConfig) -> Optional[str]:
+    """Gets the path to store plots of training results from training config
+
+    Parameters
+    ----------
+    train_config : TrainConfig
+        Model training configuration.
+
+    Returns
+    -------
+    Optional[str]
+        Path to store plots of training results.
+    """
     if train_config.results_dir is None:
         return None
     return os.path.join(train_config.results_dir, "plots")
@@ -138,6 +304,30 @@ def train_one_epoch(
     device: torch.device,
     verbose: bool,
 ) -> float:
+    """Trains the model for one epoch
+
+    Parameters
+    ----------
+    model : ModelWrapper
+        Model to be trained.
+    train_loader : DataLoader
+        Data loader for the training set.
+    optimizer : Optimizer
+        PyTorch optimizer.
+    criterion : Module
+        PyTorch implementation of a loss function.
+    metrics : MetricList
+        List of training metrics.
+    device : device
+        Device to train the model on.
+    verbose : bool
+        Whether to log the training progress for this epoch in detail.
+
+    Returns
+    -------
+    float
+        Training loss of this epoch.
+    """
     model.train()
     train_running_loss = 0.0
     metrics.reset()
@@ -149,7 +339,7 @@ def train_one_epoch(
         with torch.set_grad_enabled(True):
             optimizer.zero_grad()
             outputs = model(image).squeeze(dim=1)
-            loss = criterion(outputs, labels.to(torch.float))
+            loss = criterion(outputs, labels)
             train_running_loss += loss.item()
             preds = model.get_pred_idx(outputs)
             metrics.update(preds, labels)
@@ -168,6 +358,28 @@ def validate(
     device: torch.device,
     verbose: bool,
 ) -> float:
+    """Validates the model
+
+    Parameters
+    ----------
+    model : ModelWrapper
+        Model to be validated.
+    val_loader : DataLoader
+        Data loader for the validation set.
+    criterion : nn.Module
+        PyTorch implementation of a loss function.
+    metrics : MetricList
+        List of validation metrics.
+    device : device
+        Device to validate the model on.
+    verbose : bool
+        Whether to log the validation progress in detail.
+
+    Returns
+    -------
+    float
+        Validation loss.
+    """
     model.eval()
     valid_running_loss = 0.0
     metrics.reset()
@@ -179,7 +391,7 @@ def validate(
             labels = labels.to(device)
             with torch.no_grad():
                 outputs = model(image).squeeze(dim=1)
-                loss = criterion(outputs, labels.to(torch.float))
+                loss = criterion(outputs, labels)
                 valid_running_loss += loss.item()
                 preds = model.get_pred_idx(outputs)
                 metrics.update(preds, labels)
@@ -194,6 +406,19 @@ def train(
     train_loader: DataLoader,
     val_loader: DataLoader,
 ):
+    """Trains the model
+
+    Parameters
+    ----------
+    model : ModelWrapper
+        Model to be trained.
+    train_config : TrainConfig
+        Model training configuration.
+    train_loader : DataLoader
+        Data loader for the training set.
+    val_loader : DataLoader
+        Data loader for the validation set.
+    """
     _init_training(train_config)
     optimizer = train_config.optimizer
     criterion = train_config.criterion
@@ -307,6 +532,17 @@ def eval(
     eval_config: EvalConfig,
     test_loader: DataLoader,
 ):
+    """Evaluates the model
+
+    Parameters
+    ----------
+    model : ModelWrapper
+        Model to be evaluated.
+    eval_config : EvalConfig
+        Model evaluation configuration.
+    test_loader : DataLoader
+        Data loader for the test set.
+    """
     model.eval()
     _init_eval(eval_config)
 

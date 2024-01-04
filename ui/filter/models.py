@@ -165,7 +165,7 @@ class TorchUiFilter(BaseUiFilter):
     def filter(self, elements: List[UiElement]) -> List[UiElement]:
         # Assume that the screenshots are of shape (h, w, c).
         def infer(element: UiElement) -> int:
-            out = self.model(self.transform(element))
+            out = self.model(self.transform(element).unsqueeze(0))
             return int(self.model.get_pred_idx(out).item())
 
         def infer_batched(elements: List[UiElement]) -> List[int]:

@@ -1,5 +1,5 @@
 from .metric import (
-    BinaryAccuracy,
+    Accuracy,
     BinaryF1Score,
     BinaryPrecision,
     BinaryRecall,
@@ -17,5 +17,5 @@ from .training import (
     train,
     validate,
 )
-from .utils import BatchLoader, load_model, save_model, save_plots
+from .utils import BatchLoader, load_model, save_model, save_plots, get_data_loaders
 from .wrapper import ModelWrapper

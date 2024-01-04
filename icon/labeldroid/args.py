@@ -1,13 +1,22 @@
 from dataclasses import dataclass
-import os
-from typing import Any, Dict, NamedTuple, Optional
-from typing_extensions import Self
+from typing import Any, Dict, Optional
 
 from .vocab import Vocabulary
 
 
 @dataclass
 class LabelDroidArgs:
+    """
+    Arguments to construct a LabelDroid model.
+
+    Attributes
+    ----------
+    model_path : Optional[str]
+        Path to a saved model.
+    vocab_path : Optional[str]
+        Path to the vocabulary file.
+    """
+
     model_path: Optional[str] = None
     vocab_path: Optional[str] = None
 
@@ -35,6 +44,13 @@ class LabelDroidArgs:
             self.vocab = Vocabulary.load(self.vocab_path)
 
     def get_resnetfeats_args(self) -> Dict[str, Any]:
+        """Gets features/hyperparameters of the ResNet model
+
+        Returns
+        -------
+        Dict[str, Any]
+            Mapping from hyperparameter names to values.
+        """
         return {
             "caption_model": self.caption_model,
             "att_size": self.att_size,
@@ -43,6 +59,13 @@ class LabelDroidArgs:
         }
 
     def get_decoder_args(self) -> Dict[str, Any]:
+        """Gets features/hyperparameters of the decoder
+
+        Returns
+        -------
+        Dict[str, Any]
+            Mapping from hyperparameter names to values.
+        """
         if self.vocab is None:
             raise ValueError("`vocab` must be set.")
         return {
