@@ -1,5 +1,5 @@
 import random
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 import cv2
 import matplotlib.pyplot as plt  # type: ignore
@@ -79,7 +79,12 @@ def _get_color_map(elems: List[UiElement]) -> Dict[str, _PlotColor]:
     return color_map
 
 
-def plot_ui_elements(img: np.ndarray, elems: List[UiElement], scale: float = 1.0):
+def plot_ui_elements(
+    img: np.ndarray,
+    elems: List[UiElement],
+    scale: float = 1.0,
+    fname: Optional[str] = None,
+):
     """Highlights UI elements on the given image according to their bounding boxes
     and displays the result.
 
@@ -95,6 +100,8 @@ def plot_ui_elements(img: np.ndarray, elems: List[UiElement], scale: float = 1.0
     scale : float
         Factor to scale the screenshot. The resulting image will be of size
         scale * size of the screenshot.
+    save : bool
+        Whether to save the resulting image.
     """
     plt.xticks([], [])
     plt.yticks([], [])
@@ -107,5 +114,8 @@ def plot_ui_elements(img: np.ndarray, elems: List[UiElement], scale: float = 1.0
         (x0, y0), (x1, y1) = e.bbox
         bbox = tuple(int(e * scale) for e in (x0, y0, x1, y1))
         annotator.box_label(bbox, f"({i})", color.bg, color.text)
-    plt.imshow(annotator.result())
-    plt.show()
+    if fname is None:
+        plt.imshow(annotator.result())
+        plt.show()
+    else:
+        plt.imsave(fname, annotator.result())
