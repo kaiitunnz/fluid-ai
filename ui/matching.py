@@ -393,8 +393,8 @@ class HogUiMatching(FeatureUiMatching):
 
     def __init__(
         self,
-        iou_threshold: float = 0.6,
-        similarity_threshold: float = 0.2,
+        iou_threshold: float = 0.3,
+        similarity_threshold: float = 0.4,
         win_size: Tuple[int, int] = (64, 64),
         block_size: Tuple[int, int] = (16, 16),
         block_stride: Tuple[int, int] = (8, 8),
