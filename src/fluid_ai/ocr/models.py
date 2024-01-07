@@ -1,9 +1,8 @@
 from abc import abstractmethod
-from typing import Any, Callable, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Iterable, List, Optional, Sequence, Tuple
 
 import cv2
 import easyocr  # type: ignore
-import keras_ocr  # type: ignore
 import pytesseract  # type: ignore
 
 from .utils import TextBox
@@ -276,27 +275,7 @@ class KerasOCR(BaseOCR):
         Instance of keras-ocr's Pipeline.
     """
 
-    model: keras_ocr.pipeline.Pipeline
-
-    def __init__(self):
-        super().__init__(keras_ocr.pipeline.Pipeline())
-
-    def recognize(
-        self,
-        images: Sequence[Array],
-    ) -> List[Optional[str]]:
-        tmp = []
-        for image in images:
-            tmp.extend(self.model.recognize([image]))
-        results: List[Optional[str]] = [
-            "\n".join((r.text or "") for r in self._merge_results(result))
-            for result in tmp
-        ]
-        return results
-
-    @staticmethod
-    def _get_text_box(result: Any) -> TextBox:
-        return TextBox(tuple(tuple(row) for row in result[1]), result[0])  # type: ignore
+    pass
 
 
 class TesseractOCR(BaseOCR):
