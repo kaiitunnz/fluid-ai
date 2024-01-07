@@ -11,7 +11,6 @@ setup(
     url="https://github.com/kaiitunnz/fluid-ai",
     author="Noppanat Wadlom",
     author_email="noppanat.wad@gmail.com",
-    packages=["fluid_ai"],
     package_data={"fluid_ai": ["py.typed"]},
     package_dir={"": "src"},
     install_requires=install_requires,
