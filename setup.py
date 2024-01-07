@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup  # type:ignore
 
 from src.fluid_ai import __version__
 
@@ -12,6 +12,7 @@ setup(
     author="Noppanat Wadlom",
     author_email="noppanat.wad@gmail.com",
     packages=["fluid_ai"],
+    package_data={"fluid_ai": ["py.typed"]},
     package_dir={"": "src"},
     install_requires=install_requires,
 )
