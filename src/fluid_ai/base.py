@@ -11,6 +11,7 @@ Number = Union[int, float]
 Vertex = Tuple[Number, Number]  # (x, y)
 Box = Tuple[Vertex, Vertex, Vertex, Vertex]  # ((x0, y0), (x1, y1), (x2, y2), (x3, y3))
 UiInfo = Dict[str, Any]
+UiRelation = Dict[str, Any]
 
 
 def array_get_size(array: Array) -> Tuple[int, int]:
@@ -488,12 +489,15 @@ class UiElement:
         and `UiElement.get_screenshot()`).
     info : UiInfo
         Auxiliary information of the UI element.
+    relation : UiRelation
+        Relations between UI elements.
     """
 
     name: str
     bbox: _NormalizedBBox
     screenshot: Union[str, Array, None]
     info: UiInfo
+    relation: UiRelation
 
     def __init__(
         self,
@@ -501,6 +505,7 @@ class UiElement:
         bbox: _NormalizedBBox,
         screenshot: Optional[Union[str, Array]] = None,
         info: Optional[UiInfo] = None,
+        relation: Optional[UiRelation] = None,
     ):
         """
         Parameters
@@ -520,6 +525,7 @@ class UiElement:
         self.bbox = bbox
         self.screenshot = screenshot
         self.info = {} if info is None else info
+        self.relation = {} if relation is None else relation
 
     @classmethod
     def from_xywh(
@@ -626,7 +632,7 @@ class UiElement:
         return array_to_numpy(screenshot)
 
     def __repr__(self) -> str:
-        return f"UiElement(name={self.name}, bbox={self.bbox}, info={self.info})"
+        return f"UiElement(name={self.name}, bbox={self.bbox}, info={self.info}, relation={self.relation})"
 
 
 class UiDetectionModule:

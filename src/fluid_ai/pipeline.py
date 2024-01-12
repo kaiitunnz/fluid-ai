@@ -11,6 +11,7 @@ from .ocr import BaseOCR
 from .ui.detection import BaseUiDetector
 from .ui.filter import BaseUiFilter
 from .ui.matching import BaseUiMatching
+from .ui.relation import BaseUiRelation
 
 
 class TestUiDetectionPipeline:
@@ -109,6 +110,7 @@ class UiDetectionPipeline:
     textual_elements: List[str]
     icon_labeler: BaseIconLabeler
     icon_elements: List[str]
+    relation: BaseUiRelation
 
     def __init__(
         self,
@@ -119,6 +121,7 @@ class UiDetectionPipeline:
         textual_elements: List[str],
         icon_labeler: BaseIconLabeler,
         icon_elements: List[str],
+        relation: BaseUiRelation,
     ):
         """
         Parameters
@@ -137,6 +140,8 @@ class UiDetectionPipeline:
             Icon labeling module.
         icon_elements : List[str]
             Names of UI classes corresponding to icon UI elements.
+        relation : BaseUIRelation.
+            UI relation module.
         """
         self.detector = detector
         self.filter = filter
@@ -145,6 +150,7 @@ class UiDetectionPipeline:
         self.textual_elements = textual_elements
         self.icon_labeler = icon_labeler
         self.icon_elements = icon_elements
+        self.relation = relation
 
     def detect(
         self,
@@ -176,6 +182,7 @@ class UiDetectionPipeline:
                 if e.name in self.icon_elements:
                     icons.append(e)
             self.icon_labeler(icons)
+            self.relation(matched)
             yield matched
 
     def benchmark(
@@ -211,6 +218,7 @@ class UiDetectionPipeline:
             "matching_time (ms)",
             "text_recognition_time (ms)",
             "icon_labelling_time (ms)",
+            "ui_relation_time(ms)",
         ]
         results = []
         first = True
@@ -245,6 +253,9 @@ class UiDetectionPipeline:
             start = time.time()
             self.icon_labeler(icons)
             icon_labelling_time = time.time() - start  # 8
+            start = time.time()
+            self.relation(matched)
+            ui_relation_time = time.time() - start  # 9
             results.append(
                 [
                     num_detected,
@@ -257,6 +268,7 @@ class UiDetectionPipeline:
                     matching_time * 1000,
                     text_recognition_time * 1000,
                     icon_labelling_time * 1000,
+                    ui_relation_time * 1000,
                 ]
             )
         return pd.DataFrame(results, columns=columns)
